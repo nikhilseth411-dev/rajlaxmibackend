@@ -1,0 +1,38 @@
+# ================================================================
+# RajLaxmi Jewellers — PRODUCTION Configuration
+# Active when: SPRING_PROFILES_ACTIVE=prod
+# All values MUST come from environment variables on Railway/Render
+# Never commit real secrets to git
+# ================================================================
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate      # NEVER use 'update' in production
+    show-sql: false
+
+  data:
+    redis:
+      ssl:
+        enabled: ${REDIS_SSL:false}
+
+server:
+  error:
+    include-message: never   # hide internal errors from API consumers
+    include-binding-errors: never
+    include-stacktrace: never
+
+logging:
+  level:
+    com.rajlaxmi: INFO
+    org.springframework.security: WARN
+    root: WARN
+  file:
+    name: /logs/rajlaxmi-prod.log
+
+# Disable swagger in production (optional — comment out to keep it)
+# springdoc:
+#   api-docs:
+#     enabled: false
+#   swagger-ui:
+#     enabled: false

@@ -1,0 +1,72 @@
+version: '3.9'
+
+# ================================================================
+# RajLaxmi Jewellers — Docker Compose (Local Development)
+# Services: app + postgres + redis
+# Run: docker-compose up -d
+# ================================================================
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: rajlaxmi-postgres
+    environment:
+      POSTGRES_DB: rajlaxmi_db
+      POSTGRES_USER: rajlaxmi
+      POSTGRES_PASSWORD: rajlaxmi@123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rajlaxmi -d rajlaxmi_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: rajlaxmi-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  app:
+    build: .
+    container_name: rajlaxmi-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_URL: jdbc:postgresql://postgres:5432/rajlaxmi_db
+      DB_USERNAME: rajlaxmi
+      DB_PASSWORD: rajlaxmi@123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: rajlaxmi-jewellers-dev-secret-key-min-32-chars-long
+      MAIL_USERNAME: rajlaxmijewellers.gaya@gmail.com
+      MAIL_PASSWORD: your_gmail_app_password
+      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000
+    ports:
+      - "8080:8080"
+    volumes:
+      - uploads_data:/app/uploads
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads_data:
