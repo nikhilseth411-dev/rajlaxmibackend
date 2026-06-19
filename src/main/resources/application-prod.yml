@@ -25,6 +25,10 @@ server:
 auth:
   expose-otp-in-response: ${AUTH_EXPOSE_OTP:false}
 
+app:
+  mail:
+    enabled: ${MAIL_ENABLED:true}
+
 gold-price:
   scheduler-enabled: ${GOLD_PRICE_SCHEDULER_ENABLED:true}
 

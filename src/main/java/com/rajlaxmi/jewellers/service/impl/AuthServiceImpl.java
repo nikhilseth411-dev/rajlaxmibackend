@@ -81,6 +81,9 @@ public class AuthServiceImpl implements AuthService {
     @Value("${jwt.refresh-token-expiry-ms}")
     private long refreshTokenExpiryMs;
 
+    @Value("${jwt.access-token-expiry-ms}")
+    private long accessTokenExpiryMs;
+
     @Value("${rate-limit.login-attempts:5}")
     private int maxLoginAttempts;
 
@@ -345,6 +348,7 @@ public class AuthServiceImpl implements AuthService {
                 .accessToken(accessToken)
                 .refreshToken(rawRefreshToken)  // raw token sent to client
                 .tokenType("Bearer")
+                .accessTokenExpiresIn(accessTokenExpiryMs)
                 .user(UserResponse.builder()
                         .id(user.getId())
                         .firstName(user.getFirstName())

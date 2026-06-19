@@ -41,9 +41,16 @@ public class EmailServiceImpl implements EmailService {
     @Value("${business.name:राज लक्ष्मी ज्वेलर्स}")
     private String businessName;
 
+    @Value("${app.mail.enabled:false}")
+    private boolean mailEnabled;
+
     @Override
     @Async
     public void sendOtpEmail(String to, String name, String otp) {
+        if (isMailDeliveryDisabled("OTP", to)) {
+            return;
+        }
+
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -61,6 +68,10 @@ public class EmailServiceImpl implements EmailService {
     @Override
     @Async
     public void sendPasswordResetEmail(String to, String name, String resetToken) {
+        if (isMailDeliveryDisabled("Password reset", to)) {
+            return;
+        }
+
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -78,6 +89,10 @@ public class EmailServiceImpl implements EmailService {
     @Override
     @Async
     public void sendWelcomeEmail(String to, String name) {
+        if (isMailDeliveryDisabled("Welcome", to)) {
+            return;
+        }
+
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -92,6 +107,15 @@ public class EmailServiceImpl implements EmailService {
     }
 
     // ── HTML Templates ────────────────────────────────────────
+
+    private boolean isMailDeliveryDisabled(String emailType, String to) {
+        if (mailEnabled) {
+            return false;
+        }
+
+        log.info("{} email delivery skipped for {} because app.mail.enabled=false.", emailType, to);
+        return true;
+    }
 
     private String buildOtpEmailHtml(String name, String otp) {
         return """

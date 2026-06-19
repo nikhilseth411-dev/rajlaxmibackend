@@ -7,6 +7,7 @@ import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -33,8 +34,13 @@ import java.util.List;
 @Configuration
 public class SwaggerConfig {
 
+    @Value("${server.servlet.context-path:}")
+    private String contextPath;
+
     @Bean
     public OpenAPI rajlaxmiOpenAPI() {
+        String apiBasePath = (contextPath == null || contextPath.isBlank()) ? "/" : contextPath;
+
         return new OpenAPI()
                 .info(new Info()
                         .title("🪙 राज लक्ष्मी ज्वेलर्स — REST API")
@@ -58,8 +64,7 @@ public class SwaggerConfig {
                         )
                 )
                 .servers(List.of(
-                        new Server().url("/").description("Current Server"),
-                        new Server().url("http://localhost:8080/api/v1").description("Local Dev")
+                        new Server().url(apiBasePath).description("Current API base path")
                 ))
                 // ── JWT Security Scheme ──────────────────────
                 .addSecurityItem(new SecurityRequirement().addList("BearerAuth"))

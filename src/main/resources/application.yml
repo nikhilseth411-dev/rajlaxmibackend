@@ -142,6 +142,8 @@ auth:
   expose-otp-in-response: ${AUTH_EXPOSE_OTP:true}
 
 app:
+  mail:
+    enabled: ${MAIL_ENABLED:false}
   dev-admin:
     email: ${DEV_ADMIN_EMAIL:admin@rajlaxmi.local}
     password: ${DEV_ADMIN_PASSWORD:Admin@12345}
