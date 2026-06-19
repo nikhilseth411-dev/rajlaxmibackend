@@ -11,7 +11,6 @@ import com.rajlaxmi.jewellers.repository.ProductRepository;
 import com.rajlaxmi.jewellers.service.CategoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +27,6 @@ public class CategoryServiceImpl implements CategoryService {
     private final ProductRepository productRepository;
 
     @Override
-    @Cacheable(value = "categories", key = "'all'")
     @Transactional(readOnly = true)
     public List<CategoryResponse> getAllCategories() {
         return categoryRepository.findByIsActiveTrueOrderBySortOrderAsc()
@@ -36,7 +34,6 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
-    @Cacheable(value = "categories", key = "'root'")
     @Transactional(readOnly = true)
     public List<CategoryResponse> getRootCategories() {
         return categoryRepository.findByParentIsNullAndIsActiveTrueOrderBySortOrderAsc()
