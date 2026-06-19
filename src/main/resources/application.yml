@@ -28,7 +28,7 @@ spring:
   # ── JPA / Hibernate ──────────────────────────────────────────
   jpa:
     hibernate:
-      ddl-auto: update        # use 'validate' in production after first run
+      ddl-auto: validate
     show-sql: false           # set true only during debugging
     properties:
       hibernate:
@@ -36,6 +36,11 @@ spring:
         jdbc:
           time_zone: Asia/Kolkata
     open-in-view: false       # prevents lazy-loading issues in controllers
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
 
   # ── Redis Cache ───────────────────────────────────────────────
   # Used for: gold prices (refresh every 1 hr), session rate-limiting
