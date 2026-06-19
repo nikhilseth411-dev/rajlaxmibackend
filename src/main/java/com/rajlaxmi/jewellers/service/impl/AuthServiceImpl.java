@@ -90,6 +90,9 @@ public class AuthServiceImpl implements AuthService {
     @Value("${rate-limit.otp-expiry-min:10}")
     private int otpExpiryMin;
 
+    @Value("${auth.expose-otp-in-response:false}")
+    private boolean exposeOtpInResponse;
+
     private final SecureRandom secureRandom = new SecureRandom();
 
     // ── Registration ──────────────────────────────────────────
@@ -124,7 +127,11 @@ public class AuthServiceImpl implements AuthService {
 
         log.info("User registered: {}. OTP sent to email.", user.getEmail());
 
-        return ApiResponse.success("Registration successful! Please check your email for the 6-digit OTP to verify your account.");
+        String message = "Registration successful! Please check your email for the 6-digit OTP to verify your account.";
+        if (exposeOtpInResponse) {
+            message += " Dev OTP: " + otp;
+        }
+        return ApiResponse.successMessage(message);
     }
 
     // ── OTP Verification ──────────────────────────────────────
@@ -172,7 +179,11 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(user);
 
         emailService.sendOtpEmail(user.getEmail(), user.getFirstName(), otp);
-        return ApiResponse.success("New OTP sent to " + email);
+        String message = "New OTP sent to " + email;
+        if (exposeOtpInResponse) {
+            message += ". Dev OTP: " + otp;
+        }
+        return ApiResponse.successMessage(message);
     }
 
     // ── Login ─────────────────────────────────────────────────
@@ -263,7 +274,7 @@ public class AuthServiceImpl implements AuthService {
                         refreshTokenRepository.save(token);
                     });
         }
-        return ApiResponse.success("Logged out successfully.");
+        return ApiResponse.successMessage("Logged out successfully.");
     }
 
     // ── Password Reset ────────────────────────────────────────
@@ -278,7 +289,7 @@ public class AuthServiceImpl implements AuthService {
             emailService.sendPasswordResetEmail(user.getEmail(), user.getFirstName(), resetToken);
         });
         // Always return success (security: don't reveal if email exists)
-        return ApiResponse.success("If an account with this email exists, a password reset link has been sent.");
+        return ApiResponse.successMessage("If an account with this email exists, a password reset link has been sent.");
     }
 
     @Override
@@ -304,7 +315,7 @@ public class AuthServiceImpl implements AuthService {
         // Revoke all refresh tokens for this user (force re-login on all devices)
         refreshTokenRepository.revokeAllByUserId(user.getId());
 
-        return ApiResponse.success("Password reset successfully. Please login with your new password.");
+        return ApiResponse.successMessage("Password reset successfully. Please login with your new password.");
     }
 
     // ── Private Helpers ───────────────────────────────────────

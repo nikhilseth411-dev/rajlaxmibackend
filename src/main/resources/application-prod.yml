@@ -22,6 +22,12 @@ server:
     include-binding-errors: never
     include-stacktrace: never
 
+auth:
+  expose-otp-in-response: ${AUTH_EXPOSE_OTP:false}
+
+gold-price:
+  scheduler-enabled: ${GOLD_PRICE_SCHEDULER_ENABLED:true}
+
 logging:
   level:
     com.rajlaxmi: INFO

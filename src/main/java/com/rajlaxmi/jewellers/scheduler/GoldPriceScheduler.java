@@ -6,6 +6,7 @@ import com.rajlaxmi.jewellers.repository.GoldPriceRepository;
 import com.rajlaxmi.jewellers.repository.SilverPriceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -65,6 +66,9 @@ public class GoldPriceScheduler {
     private final CacheManager cacheManager;
     private final WebClient.Builder webClientBuilder;
 
+    @Value("${gold-price.scheduler-enabled:true}")
+    private boolean schedulerEnabled;
+
     // Conversion constants
     private static final BigDecimal TROY_OUNCE_TO_GRAMS = new BigDecimal("31.1035");
     private static final int SCALE = 2;
@@ -80,6 +84,11 @@ public class GoldPriceScheduler {
     @Scheduled(initialDelay = 1000, fixedDelay = Long.MAX_VALUE) // run once on startup
     @Transactional
     public void fetchAndUpdateGoldPrices() {
+        if (!schedulerEnabled) {
+            log.info("Gold price scheduler is disabled. Using existing or seeded metal rates.");
+            return;
+        }
+
         log.info("Starting gold price fetch at {}", LocalDateTime.now());
 
         try {

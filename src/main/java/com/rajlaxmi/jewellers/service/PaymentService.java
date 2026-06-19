@@ -3,6 +3,8 @@ package com.rajlaxmi.jewellers.service;
 import com.rajlaxmi.jewellers.dto.request.PaymentConfirmRequest;
 import com.rajlaxmi.jewellers.dto.response.ApiResponse;
 import com.rajlaxmi.jewellers.dto.response.PaymentResponse;
+import com.rajlaxmi.jewellers.entity.Order;
+import com.rajlaxmi.jewellers.entity.Payment;
 
 public interface PaymentService {
 
@@ -20,4 +22,7 @@ public interface PaymentService {
 
     /** Get all pending UPI payments (admin) */
     ApiResponse<?> getPendingPayments();
+
+    /** Create the payment record that belongs to a newly placed order */
+    Payment createPaymentForOrder(Order order);
 }

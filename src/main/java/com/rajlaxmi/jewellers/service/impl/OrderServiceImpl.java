@@ -10,6 +10,7 @@ import com.rajlaxmi.jewellers.exception.ResourceNotFoundException;
 import com.rajlaxmi.jewellers.repository.*;
 import com.rajlaxmi.jewellers.service.GoldPriceService;
 import com.rajlaxmi.jewellers.service.OrderService;
+import com.rajlaxmi.jewellers.service.PaymentService;
 import com.rajlaxmi.jewellers.util.PricingEngine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -57,6 +58,7 @@ public class OrderServiceImpl implements OrderService {
     private final UserRepository userRepository;
     private final GoldPriceService goldPriceService;
     private final PricingEngine pricingEngine;
+    private final PaymentService paymentService;
 
     // ── Place Order ───────────────────────────────────────────
 
@@ -219,7 +221,10 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // 11. Clear cart
+        // 11. Create payment record for UPI/COD follow-up endpoints
+        paymentService.createPaymentForOrder(order);
+
+        // 12. Clear cart
         cartRepository.clearCartByUserId(userId);
 
         log.info("Order placed: {} by user: {} | Total: ₹{}", orderNumber, userId, grandTotal);

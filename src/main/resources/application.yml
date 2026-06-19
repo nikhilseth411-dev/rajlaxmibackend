@@ -32,7 +32,6 @@ spring:
     show-sql: false           # set true only during debugging
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
         jdbc:
           time_zone: Asia/Kolkata
@@ -51,6 +50,8 @@ spring:
           max-active: 8
           max-idle: 4
           min-idle: 1
+      repositories:
+        enabled: false
 
   cache:
     type: redis
@@ -105,6 +106,7 @@ jwt:
 gold-price:
   api-url: https://api.metals.live/v1/spot
   currency: INR
+  scheduler-enabled: ${GOLD_PRICE_SCHEDULER_ENABLED:false}
   refresh-cron: "0 0 * * * *"   # every hour at :00 minutes
   cache-key: "gold_rates_current"
 
@@ -130,6 +132,14 @@ rate-limit:
   login-attempts: 5           # max failed attempts before lock
   lockout-duration-min: 30    # minutes to stay locked
   otp-expiry-min: 10          # OTP valid for 10 minutes
+
+auth:
+  expose-otp-in-response: ${AUTH_EXPOSE_OTP:true}
+
+app:
+  dev-admin:
+    email: ${DEV_ADMIN_EMAIL:admin@rajlaxmi.local}
+    password: ${DEV_ADMIN_PASSWORD:Admin@12345}
 
 # ── File Upload ───────────────────────────────────────────────
 file:

@@ -38,5 +38,4 @@ ENTRYPOINT ["java", \
   "-Xmx512m", \
   "-Xms256m", \
   "-Djava.security.egd=file:/dev/./urandom", \
-  "-Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:dev}", \
   "-jar", "app.jar"]

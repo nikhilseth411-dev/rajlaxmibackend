@@ -69,6 +69,14 @@ public class ApiResponse<T> {
         return success("Success", data);
     }
 
+    public static <T> ApiResponse<T> successMessage(String message) {
+        return ApiResponse.<T>builder()
+                .success(true)
+                .message(message)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
     public static <T> ApiResponse<T> error(String message) {
         return ApiResponse.<T>builder()
                 .success(false)
