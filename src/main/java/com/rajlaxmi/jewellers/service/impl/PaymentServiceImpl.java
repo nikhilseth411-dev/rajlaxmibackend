@@ -93,9 +93,13 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional(readOnly = true)
-    public ApiResponse<String> getUpiQrCode(Long orderId) {
+    public ApiResponse<String> getUpiQrCode(Long orderId, Long userId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+
+        if (!order.getUser().getId().equals(userId)) {
+            throw new UnauthorizedException("You are not authorized to view this payment QR code.");
+        }
 
         String qrUrl = generateQrCodeUrl(order);
         return ApiResponse.success("QR code URL generated.", qrUrl);

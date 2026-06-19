@@ -42,6 +42,23 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<CategoryResponse> getCategoryTree() {
+        return categoryRepository.findByParentIsNullAndIsActiveTrueOrderBySortOrderAsc()
+                .stream().map(this::toTreeResponse).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CategoryResponse> getChildCategories(Long parentId) {
+        if (!categoryRepository.existsById(parentId)) {
+            throw new ResourceNotFoundException("Category", "id", parentId);
+        }
+        return categoryRepository.findByParentIdAndIsActiveTrueOrderBySortOrderAsc(parentId)
+                .stream().map(this::toResponse).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public CategoryResponse getCategoryBySlug(String slug) {
         return categoryRepository.findBySlug(slug)
                 .map(this::toResponse)
@@ -123,6 +140,16 @@ public class CategoryServiceImpl implements CategoryService {
                 .parentId(c.getParent() != null ? c.getParent().getId() : null)
                 .parentName(c.getParent() != null ? c.getParent().getName() : null)
                 .build();
+    }
+
+    private CategoryResponse toTreeResponse(Category c) {
+        CategoryResponse response = toResponse(c);
+        response.setChildren(c.getChildren().stream()
+                .filter(Category::isActive)
+                .sorted(java.util.Comparator.comparingInt(Category::getSortOrder))
+                .map(this::toTreeResponse)
+                .toList());
+        return response;
     }
 
     /**

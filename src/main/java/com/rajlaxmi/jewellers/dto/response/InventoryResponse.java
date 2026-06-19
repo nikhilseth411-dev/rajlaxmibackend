@@ -5,6 +5,9 @@ import java.time.LocalDateTime;
 
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class InventoryResponse {
+    private Long productId;
+    private String productName;
+    private String sku;
     private int quantity;
     private int reservedQuantity;
     private int availableQuantity;

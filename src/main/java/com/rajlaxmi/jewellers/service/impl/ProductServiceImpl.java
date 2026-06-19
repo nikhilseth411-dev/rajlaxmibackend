@@ -199,6 +199,8 @@ public class ProductServiceImpl implements ProductService {
                     .orElseThrow(() -> new ResourceNotFoundException("Category", "id", req.getCategoryId()));
             product.setCategory(cat);
         }
+        if (req.getProductCategory() != null) product.setProductCategory(req.getProductCategory());
+        if (req.getMetalType() != null) product.setMetalType(req.getMetalType());
         if (req.getGoldPurity() != null) product.setGoldPurity(req.getGoldPurity());
         if (req.getWeightGrams() != null) product.setWeightGrams(req.getWeightGrams());
         if (req.getMakingCharges() != null) product.setMakingCharges(req.getMakingCharges());
@@ -209,6 +211,8 @@ public class ProductServiceImpl implements ProductService {
         if (req.getBisHallmarkNumber() != null) product.setBisHallmarkNumber(req.getBisHallmarkNumber());
         if (req.getOccasion() != null) product.setOccasion(req.getOccasion());
         if (req.getGender() != null) product.setGender(req.getGender());
+        if (req.getDimensions() != null) product.setDimensions(req.getDimensions());
+        if (req.getFinish() != null) product.setFinish(req.getFinish());
         if (req.getIsFeatured() != null) product.setFeatured(req.getIsFeatured());
         if (req.getIsNewArrival() != null) product.setNewArrival(req.getIsNewArrival());
         if (req.getIsBestSeller() != null) product.setBestSeller(req.getIsBestSeller());

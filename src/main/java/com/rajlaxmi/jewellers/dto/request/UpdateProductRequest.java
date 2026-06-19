@@ -13,6 +13,8 @@ public class UpdateProductRequest {
     private String description;
     private Long categoryId;
     private ProductCategory productCategory;
+    @Pattern(regexp = "^(GOLD|SILVER|DIAMOND)$", message = "Metal type must be GOLD, SILVER, or DIAMOND")
+    private String metalType;
     private GoldPurity goldPurity;
     @DecimalMin("0.01") private BigDecimal weightGrams;
     @DecimalMin("0") private BigDecimal makingCharges;

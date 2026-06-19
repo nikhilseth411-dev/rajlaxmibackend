@@ -18,7 +18,7 @@ public interface OrderService {
     // Admin
     PagedResponse<OrderResponse> getAllOrders(int page, int size);
     ApiResponse<OrderResponse> updateOrderStatus(Long orderId, OrderStatus status, String adminNote);
-    ApiResponse<OrderResponse> updatePaymentStatus(Long orderId, String transactionId);
+    ApiResponse<OrderResponse> updatePaymentStatus(Long orderId, String transactionId, String adminEmail);
     // Coupon
     ApiResponse<CouponResponse> validateCoupon(String code, BigDecimal orderTotal);
 }

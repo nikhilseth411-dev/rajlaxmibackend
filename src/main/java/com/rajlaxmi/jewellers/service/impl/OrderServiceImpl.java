@@ -56,6 +56,7 @@ public class OrderServiceImpl implements OrderService {
     private final InventoryRepository inventoryRepository;
     private final CouponRepository couponRepository;
     private final UserRepository userRepository;
+    private final PaymentRepository paymentRepository;
     private final GoldPriceService goldPriceService;
     private final PricingEngine pricingEngine;
     private final PaymentService paymentService;
@@ -312,6 +313,7 @@ public class OrderServiceImpl implements OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
+        OrderStatus previousStatus = order.getStatus();
         order.setStatus(status);
         if (adminNote != null) order.setAdminNote(adminNote);
 
@@ -325,8 +327,10 @@ public class OrderServiceImpl implements OrderService {
             case DELIVERED -> order.setDeliveredAt(LocalDateTime.now());
             case CANCELLED -> {
                 order.setCancelledAt(LocalDateTime.now());
-                order.getItems().forEach(item ->
-                        inventoryRepository.incrementStock(item.getProductId(), item.getQuantity()));
+                if (previousStatus != OrderStatus.CANCELLED) {
+                    order.getItems().forEach(item ->
+                            inventoryRepository.incrementStock(item.getProductId(), item.getQuantity()));
+                }
             }
             default -> {}
         }
@@ -336,7 +340,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public ApiResponse<OrderResponse> updatePaymentStatus(Long orderId, String transactionId) {
+    public ApiResponse<OrderResponse> updatePaymentStatus(Long orderId, String transactionId, String adminEmail) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
@@ -347,6 +351,18 @@ public class OrderServiceImpl implements OrderService {
             order.setConfirmedAt(LocalDateTime.now());
         }
         orderRepository.save(order);
+
+        paymentRepository.findByOrderId(orderId).ifPresent(payment -> {
+            payment.setStatus(PaymentStatus.SUCCESS);
+            if (payment.getUtrNumber() == null || payment.getUtrNumber().isBlank()) {
+                payment.setUtrNumber(transactionId);
+            }
+            payment.setVerifiedAt(LocalDateTime.now());
+            payment.setVerifiedBy(adminEmail);
+            payment.setAdminNotes("Verified via order payment API.");
+            paymentRepository.save(payment);
+        });
+
         return ApiResponse.success("Payment verified for order #" + order.getOrderNumber(), toOrderResponse(order));
     }
 

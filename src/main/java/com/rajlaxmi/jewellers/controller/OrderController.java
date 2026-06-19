@@ -101,7 +101,8 @@ public class OrderController {
     @Operation(summary = "Admin: Mark order payment as verified (UPI/COD)")
     public ResponseEntity<ApiResponse<OrderResponse>> verifyPayment(
             @PathVariable Long orderId,
-            @RequestParam String transactionId) {
-        return ResponseEntity.ok(orderService.updatePaymentStatus(orderId, transactionId));
+            @RequestParam String transactionId,
+            @AuthenticationPrincipal User admin) {
+        return ResponseEntity.ok(orderService.updatePaymentStatus(orderId, transactionId, admin.getEmail()));
     }
 }

@@ -3,6 +3,7 @@ package com.rajlaxmi.jewellers.controller;
 import com.rajlaxmi.jewellers.dto.request.CreateCategoryRequest;
 import com.rajlaxmi.jewellers.dto.request.CreateProductRequest;
 import com.rajlaxmi.jewellers.dto.request.GoldPriceOverrideRequest;
+import com.rajlaxmi.jewellers.dto.request.UpdateInventoryRequest;
 import com.rajlaxmi.jewellers.dto.request.UpdateProductRequest;
 import com.rajlaxmi.jewellers.dto.response.*;
 import com.rajlaxmi.jewellers.entity.User;
@@ -41,6 +42,7 @@ public class AdminController {
     private final ProductService productService;
     private final CategoryService categoryService;
     private final GoldPriceService goldPriceService;
+    private final InventoryService inventoryService;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
 
@@ -154,6 +156,19 @@ public class AdminController {
     }
 
     // ── Inventory ─────────────────────────────────────────────
+
+    @GetMapping("/inventory/{productId}")
+    @Operation(summary = "Get inventory for a product")
+    public ResponseEntity<ApiResponse<InventoryResponse>> getInventory(@PathVariable Long productId) {
+        return ResponseEntity.ok(ApiResponse.success(inventoryService.getInventory(productId)));
+    }
+
+    @PutMapping("/inventory")
+    @Operation(summary = "Create or update product inventory")
+    public ResponseEntity<ApiResponse<InventoryResponse>> updateInventory(
+            @Valid @RequestBody UpdateInventoryRequest request) {
+        return ResponseEntity.ok(inventoryService.updateInventory(request));
+    }
 
     @GetMapping("/inventory/low-stock")
     @Operation(summary = "Get all low-stock products")

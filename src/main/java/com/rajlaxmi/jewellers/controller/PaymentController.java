@@ -60,7 +60,7 @@ public class PaymentController {
     public ResponseEntity<ApiResponse<String>> getQrCode(
             @PathVariable Long orderId,
             @AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(paymentService.getUpiQrCode(orderId));
+        return ResponseEntity.ok(paymentService.getUpiQrCode(orderId, user.getId()));
     }
 
     // ── Admin Endpoints ────────────────────────────────────────

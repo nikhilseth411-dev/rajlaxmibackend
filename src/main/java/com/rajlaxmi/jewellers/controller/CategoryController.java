@@ -31,6 +31,18 @@ public class CategoryController {
         return ResponseEntity.ok(ApiResponse.success(categoryService.getRootCategories()));
     }
 
+    @GetMapping("/tree")
+    @Operation(summary = "Get active category tree with child categories")
+    public ResponseEntity<ApiResponse<List<CategoryResponse>>> getTree() {
+        return ResponseEntity.ok(ApiResponse.success(categoryService.getCategoryTree()));
+    }
+
+    @GetMapping("/{id}/children")
+    @Operation(summary = "Get active child categories for a parent category")
+    public ResponseEntity<ApiResponse<List<CategoryResponse>>> getChildren(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(categoryService.getChildCategories(id)));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<CategoryResponse>> getById(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(categoryService.getCategoryById(id)));

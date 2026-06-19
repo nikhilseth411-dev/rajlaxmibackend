@@ -15,10 +15,23 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
     Optional<Inventory> findByProductId(Long productId);
 
     @Modifying
-    @Query("UPDATE Inventory i SET i.quantity = i.quantity - :qty WHERE i.product.id = :productId AND i.quantity >= :qty")
+    @Query("""
+            UPDATE Inventory i
+            SET i.quantity = i.quantity - :qty,
+                i.isInStock = CASE WHEN (i.quantity - :qty) > 0 THEN true ELSE false END,
+                i.lastUpdated = CURRENT_TIMESTAMP
+            WHERE i.product.id = :productId
+              AND (i.quantity - i.reservedQuantity) >= :qty
+            """)
     int decrementStock(@Param("productId") Long productId, @Param("qty") int qty);
 
     @Modifying
-    @Query("UPDATE Inventory i SET i.quantity = i.quantity + :qty WHERE i.product.id = :productId")
+    @Query("""
+            UPDATE Inventory i
+            SET i.quantity = i.quantity + :qty,
+                i.isInStock = CASE WHEN (i.quantity + :qty) > 0 THEN true ELSE false END,
+                i.lastUpdated = CURRENT_TIMESTAMP
+            WHERE i.product.id = :productId
+            """)
     void incrementStock(@Param("productId") Long productId, @Param("qty") int qty);
 }

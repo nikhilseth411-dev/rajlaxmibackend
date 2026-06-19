@@ -18,7 +18,7 @@ public interface PaymentService {
     ApiResponse<PaymentResponse> adminConfirmPayment(Long paymentId, PaymentConfirmRequest request, String adminEmail);
 
     /** Get UPI QR code URL for checkout */
-    ApiResponse<String> getUpiQrCode(Long orderId);
+    ApiResponse<String> getUpiQrCode(Long orderId, Long userId);
 
     /** Get all pending UPI payments (admin) */
     ApiResponse<?> getPendingPayments();
