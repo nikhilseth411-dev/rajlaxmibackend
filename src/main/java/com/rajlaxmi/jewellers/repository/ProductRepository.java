@@ -48,6 +48,36 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     Page<Product> findByGoldPurityAndIsActiveTrue(GoldPurity purity, Pageable pageable);
 
+    @Query("""
+            SELECT p FROM Product p
+            WHERE p.isActive = true
+              AND (:keyword IS NULL OR
+                   LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
+                   LOWER(COALESCE(p.description, '')) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
+                   LOWER(p.sku) LIKE LOWER(CONCAT('%', :keyword, '%')))
+              AND (:categoryId IS NULL OR p.category.id = :categoryId)
+              AND (:productCategory IS NULL OR p.productCategory = :productCategory)
+              AND (:goldPurity IS NULL OR p.goldPurity = :goldPurity)
+              AND (:metalType IS NULL OR LOWER(p.metalType) = :metalType)
+              AND (:occasion IS NULL OR LOWER(p.occasion) = :occasion)
+              AND (:gender IS NULL OR LOWER(p.gender) = :gender)
+              AND (:isFeatured IS NULL OR p.isFeatured = :isFeatured)
+              AND (:isNewArrival IS NULL OR p.isNewArrival = :isNewArrival)
+              AND (:isBestSeller IS NULL OR p.isBestSeller = :isBestSeller)
+            """)
+    Page<Product> findActiveByFilters(
+            @Param("keyword") String keyword,
+            @Param("categoryId") Long categoryId,
+            @Param("productCategory") ProductCategory productCategory,
+            @Param("goldPurity") GoldPurity goldPurity,
+            @Param("metalType") String metalType,
+            @Param("occasion") String occasion,
+            @Param("gender") String gender,
+            @Param("isFeatured") Boolean isFeatured,
+            @Param("isNewArrival") Boolean isNewArrival,
+            @Param("isBestSeller") Boolean isBestSeller,
+            Pageable pageable);
+
     // ── Product Detail (with images — avoids N+1) ─────────────
     @Query("SELECT p FROM Product p LEFT JOIN FETCH p.images WHERE p.id = :id AND p.isActive = true")
     Optional<Product> findByIdWithImages(@Param("id") Long id);

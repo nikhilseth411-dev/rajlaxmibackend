@@ -35,6 +35,8 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -52,28 +54,36 @@ public class ProductServiceImpl implements ProductService {
     @Value("${file.upload-dir:uploads/}")
     private String uploadDir;
 
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
+            "createdAt", "name", "sku", "weightGrams", "makingCharges"
+    );
+
     // ── Browse / Search ───────────────────────────────────────
 
     @Override
     @Transactional(readOnly = true)
     public PagedResponse<ProductResponse> getProducts(ProductFilterRequest filter) {
-        Sort sort = Sort.by(
-            "asc".equalsIgnoreCase(filter.getSortDir())
-                ? Sort.Direction.ASC : Sort.Direction.DESC,
-            filter.getSortBy()
+        ProductFilterRequest effectiveFilter = filter != null ? filter : new ProductFilterRequest();
+        Pageable pageable = buildPageable(
+                effectiveFilter.getPage(),
+                effectiveFilter.getSize(),
+                effectiveFilter.getSortBy(),
+                effectiveFilter.getSortDir()
         );
-        Pageable pageable = PageRequest.of(filter.getPage(), filter.getSize(), sort);
 
-        Page<Product> page;
-        if (filter.getCategoryId() != null) {
-            page = productRepository.findByCategoryIdAndIsActiveTrue(filter.getCategoryId(), pageable);
-        } else if (filter.getGoldPurity() != null) {
-            page = productRepository.findByGoldPurityAndIsActiveTrue(filter.getGoldPurity(), pageable);
-        } else if (filter.getProductCategory() != null) {
-            page = productRepository.findByProductCategoryAndIsActiveTrue(filter.getProductCategory(), pageable);
-        } else {
-            page = productRepository.findByIsActiveTrue(pageable);
-        }
+        Page<Product> page = productRepository.findActiveByFilters(
+                normalizeFilter(effectiveFilter.getKeyword()),
+                effectiveFilter.getCategoryId(),
+                effectiveFilter.getProductCategory(),
+                effectiveFilter.getGoldPurity(),
+                normalizeLowerFilter(effectiveFilter.getMetalType()),
+                normalizeLowerFilter(effectiveFilter.getOccasion()),
+                normalizeLowerFilter(effectiveFilter.getGender()),
+                effectiveFilter.getIsFeatured(),
+                effectiveFilter.getIsNewArrival(),
+                effectiveFilter.getIsBestSeller(),
+                pageable
+        );
 
         GoldPrice goldPrice = goldPriceService.getCurrentGoldPriceEntity();
         return PagedResponse.from(page, p -> toProductResponse(p, goldPrice));
@@ -82,8 +92,13 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(readOnly = true)
     public PagedResponse<ProductResponse> searchProducts(String keyword, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Page<Product> result = productRepository.searchProducts(keyword, pageable);
+        String normalizedKeyword = normalizeFilter(keyword);
+        if (normalizedKeyword == null) {
+            throw new BusinessException("Search keyword is required.");
+        }
+
+        Pageable pageable = buildPageable(page, size, "createdAt", "desc");
+        Page<Product> result = productRepository.searchProducts(normalizedKeyword, pageable);
         GoldPrice goldPrice = goldPriceService.getCurrentGoldPriceEntity();
         return PagedResponse.from(result, p -> toProductResponse(p, goldPrice));
     }
@@ -448,6 +463,26 @@ public class ProductServiceImpl implements ProductService {
                 .updatedAt(p.getUpdatedAt())
                 .relatedProducts(related)
                 .build();
+    }
+
+    private Pageable buildPageable(int page, int size, String sortBy, String sortDir) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        String safeSortBy = sortBy != null && ALLOWED_SORT_FIELDS.contains(sortBy) ? sortBy : "createdAt";
+        Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        return PageRequest.of(safePage, safeSize, Sort.by(direction, safeSortBy));
+    }
+
+    private String normalizeFilter(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
+    }
+
+    private String normalizeLowerFilter(String value) {
+        String normalized = normalizeFilter(value);
+        return normalized != null ? normalized.toLowerCase(Locale.ROOT) : null;
     }
 
     private String generateProductSlug(String name, String sku) {
