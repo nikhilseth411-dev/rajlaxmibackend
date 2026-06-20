@@ -71,8 +71,13 @@ public class ProductServiceImpl implements ProductService {
                 effectiveFilter.getSortDir()
         );
 
+        String keyword = normalizeLowerFilter(effectiveFilter.getKeyword());
+        if (keyword == null) {
+            keyword = "";
+        }
+
         Page<Product> page = productRepository.findActiveByFilters(
-                normalizeFilter(effectiveFilter.getKeyword()),
+                keyword,
                 effectiveFilter.getCategoryId(),
                 effectiveFilter.getProductCategory(),
                 effectiveFilter.getGoldPurity(),
@@ -84,7 +89,6 @@ public class ProductServiceImpl implements ProductService {
                 effectiveFilter.getIsBestSeller(),
                 pageable
         );
-
         GoldPrice goldPrice = goldPriceService.getCurrentGoldPriceEntity();
         return PagedResponse.from(page, p -> toProductResponse(p, goldPrice));
     }
@@ -92,7 +96,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(readOnly = true)
     public PagedResponse<ProductResponse> searchProducts(String keyword, int page, int size) {
-        String normalizedKeyword = normalizeFilter(keyword);
+        String normalizedKeyword = normalizeLowerFilter(keyword);
         if (normalizedKeyword == null) {
             throw new BusinessException("Search keyword is required.");
         }

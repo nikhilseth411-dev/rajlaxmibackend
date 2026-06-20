@@ -52,9 +52,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             SELECT p FROM Product p
             WHERE p.isActive = true
               AND (:keyword IS NULL OR
-                   LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
-                   LOWER(COALESCE(p.description, '')) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
-                   LOWER(p.sku) LIKE LOWER(CONCAT('%', :keyword, '%')))
+                   LOWER(p.name) LIKE CONCAT('%', :keyword, '%') OR
+                   LOWER(COALESCE(p.description, '')) LIKE CONCAT('%', :keyword, '%') OR
+                   LOWER(p.sku) LIKE CONCAT('%', :keyword, '%'))
               AND (:categoryId IS NULL OR p.category.id = :categoryId)
               AND (:productCategory IS NULL OR p.productCategory = :productCategory)
               AND (:goldPurity IS NULL OR p.goldPurity = :goldPurity)
@@ -94,9 +94,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     // ── Search ────────────────────────────────────────────────
     @Query("SELECT p FROM Product p WHERE p.isActive = true AND (" +
-           "LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-           "LOWER(p.description) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-           "LOWER(p.sku) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+            "LOWER(p.name) LIKE CONCAT('%', :keyword, '%') OR " +
+            "LOWER(COALESCE(p.description, '')) LIKE CONCAT('%', :keyword, '%') OR " +
+            "LOWER(p.sku) LIKE CONCAT('%', :keyword, '%'))")
     Page<Product> searchProducts(@Param("keyword") String keyword, Pageable pageable);
 
     // ── Related Products (same category, exclude self) ────────
