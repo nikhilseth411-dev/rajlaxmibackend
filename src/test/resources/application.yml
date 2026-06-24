@@ -1,48 +1,121 @@
 spring:
   flyway:
     enabled: false
+
   datasource:
-    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    url: jdbc:postgresql://localhost:5432/rajlaxmi_db
+    driver-class-name: org.postgresql.Driver
+    username: rajlaxmi
+    password: rajlaxmi
+
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.H2Dialect
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
   data:
     redis:
       host: localhost
       port: 6379
+
   cache:
     type: simple
+
   mail:
-    host: smtp.mailtrap.io
+    host: smtp.gmail.com
     port: 587
-    username: test
-    password: test
+    username: rajlaxmijewellers.gaya@gmail.com
+    password: dxcdmndjxfbbtsmt
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
 jwt:
   secret: test-secret-key-for-testing-only-min-32-chars
   access-token-expiry-ms: 900000
   refresh-token-expiry-ms: 604800000
+
 gold-price:
   api-url: https://api.metals.live/v1/spot
   refresh-cron: "0 0 * * * *"
+  scheduler-enabled: false
+  currency: INR
+  cache-key: "gold_rates_current"
+
 business:
-  name: "Test Store"
+  name: "Raj Laxmi Jewellers"
+  legal-name: "Bhagwan Das & Sons"
+  tagline: "Shashwat Sundarta, Bharose Ki Virasat"
+  address: "Near Santoshi Mata Mandir, Wazirganj, Gaya, Bihar - 805131"
+  phone-1: "9102316789"
+  phone-2: "9693436005"
+  whatsapp-1: "9102316789"
+  whatsapp-2: "9693436005"
+  email: "dummyshop@gmail.com"
+  instagram: "https://www.instagram.com/rajlaxmi_jewellerss"
+  upi-id: "329171694663381@cnrb"
+
 rate-limit:
   login-attempts: 5
   lockout-duration-min: 30
   otp-expiry-min: 10
+
+auth:
+  expose-otp-in-response: true
+
+app:
+  mail:
+    enabled: true
+  dev-admin:
+    email: admin@rajlaxmi.local
+    password: Admin@12345
+
 file:
-  upload-dir: /tmp/test-uploads/
+  upload-dir: uploads/
+  allowed-types: image/jpeg,image/png,image/webp
+  max-size-bytes: 5242880
+
 server:
   port: 8080
   servlet:
     context-path: /api/v1
+  error:
+    include-message: always
+    include-binding-errors: always
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+  health:
+    mail:
+      enabled: false
+
 logging:
   level:
-    com.rajlaxmi: WARN
+    com.rajlaxmi: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: WARN

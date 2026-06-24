@@ -25,25 +25,6 @@ import java.time.Year;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * OrderServiceImpl
- *
- * ORDER PLACEMENT FLOW:
- *  1. Load cart items for user → validate all items are in stock
- *  2. Fetch current gold price (snapshot for this order)
- *  3. Calculate pricing for each item via PricingEngine
- *  4. Apply coupon discount if provided
- *  5. Load and snapshot shipping address
- *  6. Create Order + OrderItems within a single transaction
- *  7. Decrement inventory (reserve stock)
- *  8. Clear cart
- *  9. Return OrderResponse
- *
- * TRANSACTION:
- *  The entire flow is @Transactional — if inventory decrement fails
- *  (e.g. race condition, stock gone), the whole order rolls back.
- *  This prevents overselling.
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -65,13 +46,15 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public ApiResponse<OrderResponse> placeOrder(Long userId, CreateOrderRequest request) {
-        // 1. Validate cart is not empty
+        if (request.getPaymentMethod() == null) {
+            throw new BusinessException("Please select a payment method.");
+        }
+
         List<Cart> cartItems = cartRepository.findByUserIdWithProducts(userId);
         if (cartItems.isEmpty()) {
             throw new BusinessException("Your cart is empty. Please add items before placing an order.");
         }
 
-        // 2. Validate shipping address belongs to user
         Address address = addressRepository.findById(request.getAddressId())
                 .orElseThrow(() -> new ResourceNotFoundException("Address", "id", request.getAddressId()));
 
@@ -79,13 +62,10 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("Invalid shipping address.");
         }
 
-        // 3. Validate serviceable pincode (Bihar and Jharkhand only)
         validateServiceablePincode(address.getState());
 
-        // 4. Fetch gold price snapshot
         GoldPrice goldPrice = goldPriceService.getCurrentGoldPriceEntity();
 
-        // 5. Build order items and validate stock
         List<OrderItem> orderItems = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
         BigDecimal totalGst = BigDecimal.ZERO;
@@ -93,29 +73,28 @@ public class OrderServiceImpl implements OrderService {
         for (Cart cartItem : cartItems) {
             Product product = cartItem.getProduct();
 
-            // Validate in stock
-            if (product.getInventory() == null || product.getInventory().getAvailableQuantity() < cartItem.getQuantity()) {
-                throw new BusinessException("'" + product.getName() + "' does not have enough stock. " +
-                        "Available: " + (product.getInventory() != null ?
-                        product.getInventory().getAvailableQuantity() : 0));
+            if (product.getInventory() == null ||
+                    product.getInventory().getAvailableQuantity() < cartItem.getQuantity()) {
+                throw new BusinessException("'" + product.getName() + "' does not have enough stock. Available: " +
+                        (product.getInventory() != null ? product.getInventory().getAvailableQuantity() : 0));
             }
 
-            // Calculate price via PricingEngine
             PricingEngine.PriceBreakdown price = pricingEngine.calculatePrice(product, goldPrice);
 
-            // Determine gold rate used for this item
             BigDecimal goldRateUsed = product.getGoldPurity() != null
                     ? switch (product.getGoldPurity()) {
-                        case GOLD_18K -> goldPrice.getRate18K();
-                        case GOLD_22K -> goldPrice.getRate22K();
-                        case GOLD_24K -> goldPrice.getRate24K();
-                    } : goldPrice.getRate22K();
+                case GOLD_18K -> goldPrice.getRate18K();
+                case GOLD_22K -> goldPrice.getRate22K();
+                case GOLD_24K -> goldPrice.getRate24K();
+            }
+                    : goldPrice.getRate22K();
 
-            // Get primary image
             String primaryImage = product.getImages().stream()
-                    .filter(ProductImage::isPrimary).findFirst()
+                    .filter(ProductImage::isPrimary)
+                    .findFirst()
                     .or(() -> product.getImages().stream().findFirst())
-                    .map(ProductImage::getImageUrl).orElse(null);
+                    .map(ProductImage::getImageUrl)
+                    .orElse(null);
 
             BigDecimal itemTotal = price.getFinalPrice().multiply(BigDecimal.valueOf(cartItem.getQuantity()));
             BigDecimal itemGst = price.getGstAmount().multiply(BigDecimal.valueOf(cartItem.getQuantity()));
@@ -147,7 +126,6 @@ public class OrderServiceImpl implements OrderService {
             totalGst = totalGst.add(itemGst);
         }
 
-        // 6. Apply coupon discount
         BigDecimal discountAmount = BigDecimal.ZERO;
         String appliedCouponCode = null;
 
@@ -160,6 +138,7 @@ public class OrderServiceImpl implements OrderService {
             }
 
             discountAmount = coupon.calculateDiscount(subtotal);
+
             if (discountAmount.compareTo(BigDecimal.ZERO) == 0) {
                 throw new BusinessException("Minimum order amount for this coupon is ₹" + coupon.getMinimumOrderAmount());
             }
@@ -169,11 +148,8 @@ public class OrderServiceImpl implements OrderService {
         }
 
         BigDecimal grandTotal = subtotal.subtract(discountAmount);
-
-        // 7. Generate order number
         String orderNumber = generateOrderNumber();
 
-        // 8. Create Order
         User user = userRepository.getReferenceById(userId);
 
         Order order = Order.builder()
@@ -182,7 +158,9 @@ public class OrderServiceImpl implements OrderService {
                 .shippingFullName(address.getFullName())
                 .shippingPhone(address.getPhone())
                 .shippingStreet(address.getStreetAddress() +
-                        (address.getLandmark() != null ? ", " + address.getLandmark() : ""))
+                        (address.getLandmark() != null && !address.getLandmark().isBlank()
+                                ? ", " + address.getLandmark()
+                                : ""))
                 .shippingCity(address.getCity())
                 .shippingState(address.getState())
                 .shippingPincode(address.getPincode())
@@ -202,39 +180,37 @@ public class OrderServiceImpl implements OrderService {
 
         order = orderRepository.save(order);
 
-        // 9. Save order items with order reference
         Order finalOrder = order;
         orderItems.forEach(item -> {
             item.setOrder(finalOrder);
             finalOrder.getItems().add(item);
         });
+
         orderRepository.save(order);
 
-        // 10. Decrement inventory for each item
         for (Cart cartItem : cartItems) {
             int decremented = inventoryRepository.decrementStock(
-                    cartItem.getProduct().getId(), cartItem.getQuantity());
+                    cartItem.getProduct().getId(),
+                    cartItem.getQuantity()
+            );
 
             if (decremented == 0) {
-                // This should not happen due to earlier check, but safety net
-                throw new BusinessException("Stock update failed for: " + cartItem.getProduct().getName() +
-                        ". Order cannot be completed.");
+                throw new BusinessException("Stock update failed for: " +
+                        cartItem.getProduct().getName() + ". Order cannot be completed.");
             }
         }
 
-        // 11. Create payment record for UPI/COD follow-up endpoints
         paymentService.createPaymentForOrder(order);
 
-        // 12. Clear cart
         cartRepository.clearCartByUserId(userId);
 
         log.info("Order placed: {} by user: {} | Total: ₹{}", orderNumber, userId, grandTotal);
 
         return ApiResponse.success(
                 "Order placed successfully! Order #" + orderNumber +
-                " confirmed. We'll notify you via WhatsApp on " +
-                address.getPhone() + ".",
-                toOrderResponse(order));
+                        " created. Please complete payment to confirm your order.",
+                toOrderResponse(order)
+        );
     }
 
     // ── Read Operations ───────────────────────────────────────
@@ -245,10 +221,10 @@ public class OrderServiceImpl implements OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
-        // Users can only see their own orders; admins bypass this in controller
         if (!order.getUser().getId().equals(userId)) {
             throw new BusinessException("Access denied.");
         }
+
         return toOrderResponse(order);
     }
 
@@ -263,9 +239,11 @@ public class OrderServiceImpl implements OrderService {
     @Transactional(readOnly = true)
     public PagedResponse<OrderResponse> getUserOrders(Long userId, int page, int size) {
         var pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+
         return PagedResponse.from(
                 orderRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable),
-                this::toOrderResponse);
+                this::toOrderResponse
+        );
     }
 
     // ── Cancel Order ──────────────────────────────────────────
@@ -279,24 +257,46 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("Access denied.");
         }
 
-        if (order.getStatus() == OrderStatus.SHIPPED || order.getStatus() == OrderStatus.DELIVERED) {
-            throw new BusinessException("Cannot cancel an order that has already been shipped or delivered.");
-        }
-
         if (order.getStatus() == OrderStatus.CANCELLED) {
             throw new BusinessException("Order is already cancelled.");
         }
 
-        // Restore inventory
+        if (order.getStatus() == OrderStatus.SHIPPED || order.getStatus() == OrderStatus.DELIVERED) {
+            throw new BusinessException("Cannot cancel an order that has already been shipped or delivered.");
+        }
+
+        if (order.getPaymentStatus() == PaymentStatus.SUCCESS) {
+            throw new BusinessException("Paid orders cannot be cancelled directly. Please contact Raj Laxmi Jewellers support.");
+        }
+
         order.getItems().forEach(item ->
-                inventoryRepository.incrementStock(item.getProductId(), item.getQuantity()));
+                inventoryRepository.incrementStock(item.getProductId(), item.getQuantity())
+        );
 
         order.setStatus(OrderStatus.CANCELLED);
         order.setCancelledAt(LocalDateTime.now());
+
+        paymentRepository.findByOrderId(orderId).ifPresent(payment -> {
+            if (payment.getStatus() != PaymentStatus.SUCCESS) {
+                payment.setStatus(PaymentStatus.FAILED);
+                payment.setFailureReason("Order cancelled by customer.");
+                payment.setAdminNotes("Order cancelled by customer.");
+                paymentRepository.save(payment);
+            }
+        });
+
+        if (order.getPaymentStatus() != PaymentStatus.SUCCESS) {
+            order.setPaymentStatus(PaymentStatus.FAILED);
+        }
+
         orderRepository.save(order);
 
         log.info("Order cancelled: {} by user: {}", order.getOrderNumber(), userId);
-        return ApiResponse.success("Order #" + order.getOrderNumber() + " has been cancelled.", toOrderResponse(order));
+
+        return ApiResponse.success(
+                "Order #" + order.getOrderNumber() + " has been cancelled.",
+                toOrderResponse(order)
+        );
     }
 
     // ── Admin Operations ──────────────────────────────────────
@@ -305,38 +305,109 @@ public class OrderServiceImpl implements OrderService {
     @Transactional(readOnly = true)
     public PagedResponse<OrderResponse> getAllOrders(int page, int size) {
         var pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return PagedResponse.from(orderRepository.findAllByOrderByCreatedAtDesc(pageable), this::toOrderResponse);
+
+        return PagedResponse.from(
+                orderRepository.findAllByOrderByCreatedAtDesc(pageable),
+                this::toOrderResponse
+        );
     }
 
     @Override
     public ApiResponse<OrderResponse> updateOrderStatus(Long orderId, OrderStatus status, String adminNote) {
+        if (status == null) {
+            throw new BusinessException("Order status is required.");
+        }
+
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
         OrderStatus previousStatus = order.getStatus();
-        order.setStatus(status);
-        if (adminNote != null) order.setAdminNote(adminNote);
 
-        // Set status-specific timestamps
+        if (previousStatus == OrderStatus.CANCELLED) {
+            throw new BusinessException("Cancelled orders cannot be updated.");
+        }
+
+        if (previousStatus == OrderStatus.DELIVERED && status != OrderStatus.DELIVERED) {
+            throw new BusinessException("Delivered orders cannot be moved back to another status.");
+        }
+
+        if (status == OrderStatus.PENDING && previousStatus != OrderStatus.PENDING) {
+            throw new BusinessException("Order cannot be moved back to PENDING.");
+        }
+
+        if (status != OrderStatus.CANCELLED && order.getPaymentStatus() != PaymentStatus.SUCCESS) {
+            throw new BusinessException("Payment is not verified yet. Verify payment before changing order status.");
+        }
+
+        order.setStatus(status);
+
+        if (adminNote != null && !adminNote.isBlank()) {
+            order.setAdminNote(adminNote);
+        }
+
         switch (status) {
             case CONFIRMED -> {
-                order.setConfirmedAt(LocalDateTime.now());
-                order.setPaymentStatus(PaymentStatus.SUCCESS);
-            }
-            case SHIPPED -> order.setShippedAt(LocalDateTime.now());
-            case DELIVERED -> order.setDeliveredAt(LocalDateTime.now());
-            case CANCELLED -> {
-                order.setCancelledAt(LocalDateTime.now());
-                if (previousStatus != OrderStatus.CANCELLED) {
-                    order.getItems().forEach(item ->
-                            inventoryRepository.incrementStock(item.getProductId(), item.getQuantity()));
+                if (order.getConfirmedAt() == null) {
+                    order.setConfirmedAt(LocalDateTime.now());
                 }
             }
-            default -> {}
+
+            case SHIPPED -> {
+                if (order.getConfirmedAt() == null) {
+                    order.setConfirmedAt(LocalDateTime.now());
+                }
+                order.setShippedAt(LocalDateTime.now());
+            }
+
+            case DELIVERED -> {
+                if (order.getConfirmedAt() == null) {
+                    order.setConfirmedAt(LocalDateTime.now());
+                }
+
+                if (order.getShippedAt() == null) {
+                    order.setShippedAt(LocalDateTime.now());
+                }
+
+                order.setDeliveredAt(LocalDateTime.now());
+            }
+
+            case CANCELLED -> {
+                order.setCancelledAt(LocalDateTime.now());
+
+                if (previousStatus != OrderStatus.CANCELLED) {
+                    order.getItems().forEach(item ->
+                            inventoryRepository.incrementStock(item.getProductId(), item.getQuantity())
+                    );
+                }
+
+                if (order.getPaymentStatus() != PaymentStatus.SUCCESS) {
+                    order.setPaymentStatus(PaymentStatus.FAILED);
+
+                    paymentRepository.findByOrderId(orderId).ifPresent(payment -> {
+                        if (payment.getStatus() != PaymentStatus.SUCCESS) {
+                            payment.setStatus(PaymentStatus.FAILED);
+                            payment.setFailureReason(
+                                    adminNote != null && !adminNote.isBlank()
+                                            ? adminNote
+                                            : "Order cancelled by admin."
+                            );
+                            payment.setAdminNotes("Order cancelled by admin.");
+                            paymentRepository.save(payment);
+                        }
+                    });
+                }
+            }
+
+            default -> {
+            }
         }
 
         orderRepository.save(order);
-        return ApiResponse.success("Order status updated to " + status.name(), toOrderResponse(order));
+
+        return ApiResponse.success(
+                "Order status updated to " + status.name(),
+                toOrderResponse(order)
+        );
     }
 
     @Override
@@ -344,26 +415,56 @@ public class OrderServiceImpl implements OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            throw new BusinessException("Cannot verify payment for a cancelled order.");
+        }
+
+        if (isRazorpayPayment(order)) {
+            throw new BusinessException("Card/Razorpay payments cannot be manually verified from Orders page. Real gateway confirmation will be added during production setup.");
+        }
+
+        if (order.getPaymentStatus() == PaymentStatus.SUCCESS) {
+            throw new BusinessException("Payment is already verified for this order.");
+        }
+
+        if (transactionId == null || transactionId.trim().isBlank()) {
+            throw new BusinessException("Transaction ID / UTR number is required.");
+        }
+
+        String cleanTransactionId = transactionId.trim();
+
+        if (isUpiPayment(order) && !cleanTransactionId.matches("^\\d{12}$")) {
+            throw new BusinessException("Please enter a valid 12-digit UTR number for UPI payment.");
+        }
+
         order.setPaymentStatus(PaymentStatus.SUCCESS);
-        order.setPaymentTransactionId(transactionId);
+        order.setPaymentTransactionId(cleanTransactionId);
+
         if (order.getStatus() == OrderStatus.PENDING) {
             order.setStatus(OrderStatus.CONFIRMED);
             order.setConfirmedAt(LocalDateTime.now());
         }
+
         orderRepository.save(order);
 
         paymentRepository.findByOrderId(orderId).ifPresent(payment -> {
             payment.setStatus(PaymentStatus.SUCCESS);
+
             if (payment.getUtrNumber() == null || payment.getUtrNumber().isBlank()) {
-                payment.setUtrNumber(transactionId);
+                payment.setUtrNumber(cleanTransactionId);
             }
+
+            payment.setFailureReason(null);
             payment.setVerifiedAt(LocalDateTime.now());
             payment.setVerifiedBy(adminEmail);
             payment.setAdminNotes("Verified via order payment API.");
             paymentRepository.save(payment);
         });
 
-        return ApiResponse.success("Payment verified for order #" + order.getOrderNumber(), toOrderResponse(order));
+        return ApiResponse.success(
+                "Payment verified for order #" + order.getOrderNumber(),
+                toOrderResponse(order)
+        );
     }
 
     // ── Coupon Validation ─────────────────────────────────────
@@ -394,26 +495,30 @@ public class OrderServiceImpl implements OrderService {
 
     // ── Helpers ───────────────────────────────────────────────
 
-    /**
-     * Generates order number: RLJ-YYYY-NNNNNN
-     * e.g. RLJ-2025-000042
-     */
     private String generateOrderNumber() {
         long count = orderRepository.countAllOrders() + 1;
         return String.format("RLJ-%d-%06d", Year.now().getValue(), count);
     }
 
-    /**
-     * Validates that delivery is available to the given state.
-     * Currently serves Bihar and Jharkhand only.
-     */
     private void validateServiceablePincode(String state) {
         List<String> serviceableStates = List.of("Bihar", "Jharkhand");
+
         if (!serviceableStates.stream().anyMatch(s -> s.equalsIgnoreCase(state))) {
             throw new BusinessException(
                     "Sorry, we currently deliver only to Bihar and Jharkhand. " +
-                    "Your address state '" + state + "' is not serviceable yet.");
+                            "Your address state '" + state + "' is not serviceable yet."
+            );
         }
+    }
+
+    private boolean isUpiPayment(Order order) {
+        return order.getPaymentMethod() != null
+                && order.getPaymentMethod().name().startsWith("UPI");
+    }
+
+    private boolean isRazorpayPayment(Order order) {
+        return order.getPaymentMethod() != null
+                && order.getPaymentMethod().name().equalsIgnoreCase("RAZORPAY");
     }
 
     private OrderResponse toOrderResponse(Order o) {

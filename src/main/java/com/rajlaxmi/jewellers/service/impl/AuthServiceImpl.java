@@ -284,15 +284,28 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public ApiResponse<String> forgotPassword(ForgotPasswordRequest request) {
-        userRepository.findByEmail(request.getEmail().toLowerCase()).ifPresent(user -> {
-            String resetToken = UUID.randomUUID().toString();
-            user.setPasswordResetToken(resetToken);
+        final String[] devOtp = new String[1];
+
+        userRepository.findByEmail(request.getEmail().toLowerCase().trim()).ifPresent(user -> {
+            String otp = generateOtp();
+
+            user.setPasswordResetToken(otp);
             user.setPasswordResetExpiresAt(LocalDateTime.now().plusMinutes(otpExpiryMin));
             userRepository.save(user);
-            emailService.sendPasswordResetEmail(user.getEmail(), user.getFirstName(), resetToken);
+
+            emailService.sendPasswordResetEmail(user.getEmail(), user.getFirstName(), otp);
+
+            devOtp[0] = otp;
+            log.info("Password reset OTP generated for user: {}", user.getEmail());
         });
-        // Always return success (security: don't reveal if email exists)
-        return ApiResponse.successMessage("If an account with this email exists, a password reset link has been sent.");
+
+        String message = "If an account with this email exists, a password reset OTP has been sent.";
+
+        if (exposeOtpInResponse && devOtp[0] != null) {
+            message += " Dev OTP: " + devOtp[0];
+        }
+
+        return ApiResponse.successMessage(message);
     }
 
     @Override
@@ -302,10 +315,11 @@ public class AuthServiceImpl implements AuthService {
         }
 
         User user = userRepository.findByPasswordResetToken(request.getToken())
-                .orElseThrow(() -> new BusinessException("Invalid or expired password reset link."));
+                .orElseThrow(() -> new BusinessException("Invalid or expired OTP."));
 
-        if (LocalDateTime.now().isAfter(user.getPasswordResetExpiresAt())) {
-            throw new BusinessException("Password reset link has expired. Please request a new one.");
+        if (user.getPasswordResetExpiresAt() == null ||
+                LocalDateTime.now().isAfter(user.getPasswordResetExpiresAt())) {
+            throw new BusinessException("OTP has expired. Please request a new OTP.");
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));

@@ -16,6 +16,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import com.rajlaxmi.jewellers.enums.Role;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.prepost.PreAuthorize;
+import java.util.List;
 
 @RestController
 @RequestMapping("/user")
@@ -28,7 +32,7 @@ public class UserController {
     private final PasswordEncoder passwordEncoder;
 
     @GetMapping("/profile")
-    @Operation(summary = "Get current user profile")
+    @Operation(summary = "Get current user pro  file")
     public ResponseEntity<ApiResponse<UserResponse>> getProfile(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(ApiResponse.success(toResponse(user)));
     }
@@ -63,6 +67,22 @@ public class UserController {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
         return ResponseEntity.ok(ApiResponse.success("Password changed successfully. Please login again."));
+    }
+    @GetMapping("/admin/customers")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Admin: Get registered customers")
+    public ResponseEntity<ApiResponse<List<UserResponse>>> getCustomers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+
+        List<UserResponse> customers = userRepository
+                .findByRole(Role.CUSTOMER, PageRequest.of(page, size))
+                .getContent()
+                .stream()
+                .map(this::toResponse)
+                .toList();
+
+        return ResponseEntity.ok(ApiResponse.success(customers));
     }
 
     private UserResponse toResponse(User u) {

@@ -88,6 +88,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/gold-rates/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/silver-rates/**").permitAll()
 
+                        // ADD THIS LINE
+                        .requestMatchers(HttpMethod.GET, "/uploads/**", "/api/v1/uploads/**").permitAll()
+
                         .requestMatchers("/actuator/health").permitAll()
 
                         .requestMatchers(
@@ -101,7 +104,6 @@ public class SecurityConfig {
 
                         .anyRequest().authenticated()
                 )
-
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
