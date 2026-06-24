@@ -70,7 +70,7 @@ rate-limit:
   otp-expiry-min: 10
 
 auth:
-  expose-otp-in-response: true
+  expose-otp-in-response: ${AUTH_EXPOSE_OTP:false}
 
 app:
   mail:

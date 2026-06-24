@@ -139,7 +139,7 @@ rate-limit:
   otp-expiry-min: 10          # OTP valid for 10 minutes
 
 auth:
-  expose-otp-in-response: ${AUTH_EXPOSE_OTP:true}
+  expose-otp-in-response: ${AUTH_EXPOSE_OTP:false}
 
 app:
   mail:
@@ -199,3 +199,4 @@ logging:
     org.hibernate.SQL: WARN
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
