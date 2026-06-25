@@ -7,6 +7,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -49,7 +50,10 @@ public class CorsConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         // Parse comma-separated allowed origins from env variable
-        List<String> allowedOrigins = List.of(allowedOriginsStr.split(","));
+        List<String> allowedOrigins = Arrays.stream(allowedOriginsStr.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isBlank())
+                .toList();
         config.setAllowedOrigins(allowedOrigins);
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));

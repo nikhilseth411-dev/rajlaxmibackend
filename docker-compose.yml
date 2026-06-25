@@ -12,8 +12,8 @@ services:
     container_name: rajlaxmi-postgres
     environment:
       POSTGRES_DB: rajlaxmi_db
-      POSTGRES_USER: rajlaxmi
-      POSTGRES_PASSWORD: rajlaxmi@123
+      POSTGRES_USER: ${DB_USERNAME:-rajlaxmi}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change_me_local_only}
     ports:
       - "5432:5432"
     volumes:
@@ -51,11 +51,12 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: dev
       DB_URL: jdbc:postgresql://postgres:5432/rajlaxmi_db
-      DB_USERNAME: rajlaxmi
-      DB_PASSWORD: rajlaxmi@123
+      DB_USERNAME: ${DB_USERNAME:-rajlaxmi}
+      DB_PASSWORD: ${DB_PASSWORD:-change_me_local_only}
+      REDIS_ENABLED: "true"
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: rajlaxmi-jewellers-dev-secret-key-min-32-chars-long
+      JWT_SECRET: ${JWT_SECRET:-change_me_local_only_min_32_chars}
       MAIL_HOST: "${MAIL_HOST}"
       MAIL_PORT: "${MAIL_PORT}"
       MAIL_ENABLED: "${MAIL_ENABLED}"

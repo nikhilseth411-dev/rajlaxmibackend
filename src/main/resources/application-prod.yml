@@ -37,8 +37,6 @@ logging:
     com.rajlaxmi: INFO
     org.springframework.security: WARN
     root: WARN
-  file:
-    name: /logs/rajlaxmi-prod.log
 
 # Disable swagger in production (optional — comment out to keep it)
 # springdoc:

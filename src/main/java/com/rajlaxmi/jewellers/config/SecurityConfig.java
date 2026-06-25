@@ -4,6 +4,7 @@ import com.rajlaxmi.jewellers.security.CustomUserDetailsService;
 import com.rajlaxmi.jewellers.security.JwtAuthenticationFilter;
 import com.rajlaxmi.jewellers.security.RateLimitingFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -64,7 +65,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
-    private final RateLimitingFilter rateLimitingFilter;
+    private final ObjectProvider<RateLimitingFilter> rateLimitingFilterProvider;
     private final CustomUserDetailsService userDetailsService;
 
     /**
@@ -109,17 +110,19 @@ public class SecurityConfig {
                 )
 
                 .authenticationProvider(authenticationProvider())
+        ;
 
-                // FIXED FILTER ORDER
-                .addFilterBefore(
-                        rateLimitingFilter,
+        rateLimitingFilterProvider.ifAvailable(filter ->
+                http.addFilterBefore(
+                        filter,
                         UsernamePasswordAuthenticationFilter.class
                 )
+        );
 
-                .addFilterBefore(
-                        jwtAuthFilter,
-                        UsernamePasswordAuthenticationFilter.class
-                );
+        http.addFilterBefore(
+                jwtAuthFilter,
+                UsernamePasswordAuthenticationFilter.class
+        );
 
         return http.build();
     }

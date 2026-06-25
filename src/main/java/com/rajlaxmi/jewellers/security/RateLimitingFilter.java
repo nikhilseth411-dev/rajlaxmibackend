@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -45,6 +46,7 @@ import java.util.concurrent.TimeUnit;
  * rather than blocking the entire application (fail-open strategy).
  */
 @Component
+@ConditionalOnProperty(name = "app.redis.enabled", havingValue = "true")
 @RequiredArgsConstructor
 @Slf4j
 public class RateLimitingFilter extends OncePerRequestFilter {

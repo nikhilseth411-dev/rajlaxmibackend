@@ -15,7 +15,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/rajlaxmi_db}
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    password: ${DB_PASSWORD:change_me_local_only}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -59,7 +59,7 @@ spring:
         enabled: false
 
   cache:
-    type: redis
+    type: ${CACHE_TYPE:simple}
     redis:
       time-to-live: 3600000   # 1 hour in ms (matches gold price refresh)
 
@@ -102,7 +102,7 @@ server:
 # Access token: short-lived (15 min) — sent with every API request
 # Refresh token: long-lived (7 days) — stored in DB, used to get new access token
 jwt:
-  secret: ${JWT_SECRET:rajlaxmi-jewellers-super-secret-key-change-in-production-min-256-bits}
+  secret: ${JWT_SECRET:change_me_local_only_min_32_chars}
   access-token-expiry-ms: ${JWT_ACCESS_EXPIRY:900000}      # 15 minutes
   refresh-token-expiry-ms: ${JWT_REFRESH_EXPIRY:604800000}  # 7 days
 
@@ -144,6 +144,8 @@ auth:
 app:
   mail:
     enabled: ${MAIL_ENABLED:false}
+  redis:
+    enabled: ${REDIS_ENABLED:false}
   dev-admin:
     email: ${DEV_ADMIN_EMAIL:admin@rajlaxmi.local}
     password: ${DEV_ADMIN_PASSWORD:Admin@12345}
