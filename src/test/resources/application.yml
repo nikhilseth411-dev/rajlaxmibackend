@@ -3,41 +3,34 @@ spring:
     enabled: false
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/rajlaxmi_db
-    driver-class-name: org.postgresql.Driver
-    username: rajlaxmi
-    password: rajlaxmi
+    url: jdbc:h2:mem:rajlaxmi_test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: create-drop
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+        dialect: org.hibernate.dialect.H2Dialect
 
   data:
     redis:
       host: localhost
       port: 6379
+      repositories:
+        enabled: false
 
   cache:
     type: simple
 
   mail:
-    host: smtp.gmail.com
-    port: 587
-    username: rajlaxmijewellers.gaya@gmail.com
-    password: dxcdmndjxfbbtsmt
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-          connectiontimeout: 5000
-          timeout: 5000
-          writetimeout: 5000
+    host: localhost
+    port: 2525
+    username: test@example.com
+    password: ""
 
 jwt:
   secret: test-secret-key-for-testing-only-min-32-chars
@@ -74,7 +67,9 @@ auth:
 
 app:
   mail:
-    enabled: true
+    enabled: false
+  redis:
+    enabled: false
   dev-admin:
     email: admin@rajlaxmi.local
     password: Admin@12345

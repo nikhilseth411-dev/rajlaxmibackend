@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,6 +31,7 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
+import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -192,13 +194,20 @@ public class AuthServiceImpl implements AuthService {
     // ── Login ─────────────────────────────────────────────────
 
     @Override
+    @Transactional(noRollbackFor = BusinessException.class)
     public ApiResponse<AuthResponse> login(LoginRequest request) {
-        String email = request.getEmail().toLowerCase();
+        String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
 
         // Load user first to check lock status BEFORE authentication
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "No account found with this email. Please register first."));
+
+        // A completed lockout starts a fresh attempt window.
+        if (user.getLockedUntil() != null && !user.getLockedUntil().isAfter(LocalDateTime.now())) {
+            user.setFailedLoginAttempts(0);
+            user.setLockedUntil(null);
+        }
 
         // Check account lock
         if (!user.isAccountNonLocked()) {
@@ -212,29 +221,28 @@ public class AuthServiceImpl implements AuthService {
                     new UsernamePasswordAuthenticationToken(email, request.getPassword())
             );
 
-            // Successful login — reset failed attempts
-            userRepository.resetFailedAttempts(email);
-
             User authenticatedUser = (User) auth.getPrincipal();
+            authenticatedUser.setFailedLoginAttempts(0);
+            authenticatedUser.setLockedUntil(null);
+            userRepository.save(authenticatedUser);
+
             AuthResponse response = generateAuthResponse(authenticatedUser);
 
             log.info("User logged in: {}", email);
             return ApiResponse.success("Login successful! Welcome back, " + authenticatedUser.getFirstName() + ".", response);
 
-        } catch (Exception e) {
-            // Increment failed attempts
-            userRepository.incrementFailedAttempts(email);
-
-            // Reload to get updated count
-            User freshUser = userRepository.findByEmail(email).orElse(user);
-            int attempts = freshUser.getFailedLoginAttempts();
+        } catch (BadCredentialsException e) {
+            int attempts = user.getFailedLoginAttempts() + 1;
+            user.setFailedLoginAttempts(attempts);
 
             if (attempts >= maxLoginAttempts) {
-                userRepository.lockAccount(email, LocalDateTime.now().plusMinutes(lockoutDurationMin));
+                user.setLockedUntil(LocalDateTime.now().plusMinutes(lockoutDurationMin));
+                userRepository.save(user);
                 throw new BusinessException(
                         "Too many failed attempts. Account locked for " + lockoutDurationMin + " minutes.");
             }
 
+            userRepository.save(user);
             int remaining = maxLoginAttempts - attempts;
             throw new BusinessException(
                     "Invalid email or password. " + remaining + " attempt(s) remaining before account lock.");

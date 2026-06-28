@@ -9,6 +9,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * ================================================================
@@ -42,6 +43,12 @@ import java.util.List;
 @Configuration
 public class CorsConfig {
 
+    private static final List<String> PRODUCTION_ORIGINS = List.of(
+            "https://rajlaxmijewellery.in",
+            "https://www.rajlaxmijewellery.in",
+            "https://rajlaxmi-frontend.vercel.app"
+    );
+
     @Value("${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}")
     private String allowedOriginsStr;
 
@@ -50,9 +57,13 @@ public class CorsConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         // Parse comma-separated allowed origins from env variable
-        List<String> allowedOrigins = Arrays.stream(allowedOriginsStr.split(","))
-                .map(String::trim)
-                .filter(origin -> !origin.isBlank())
+        List<String> allowedOrigins = Stream.concat(
+                        PRODUCTION_ORIGINS.stream(),
+                        Arrays.stream(allowedOriginsStr.split(","))
+                                .map(String::trim)
+                                .filter(origin -> !origin.isBlank())
+                )
+                .distinct()
                 .toList();
         config.setAllowedOrigins(allowedOrigins);
 

@@ -11,7 +11,7 @@ COPY pom.xml .
 # Download dependencies first (layer cache — faster rebuilds)
 RUN mvn dependency:go-offline -q
 COPY src ./src
-RUN mvn clean package -DskipTests -q
+RUN mvn clean package -q
 
 # Stage 2: Runtime (lean image)
 FROM eclipse-temurin:21-jre-alpine
