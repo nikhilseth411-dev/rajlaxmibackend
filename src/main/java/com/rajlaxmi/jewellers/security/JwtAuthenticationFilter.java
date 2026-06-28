@@ -12,6 +12,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -94,34 +95,43 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
             // Load fresh UserDetails from DB — includes role, isActive, isLocked checks
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+            try {
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
-            // Validate token signature, expiry, and email match
-            if (jwtUtil.isTokenValid(jwt, userDetails)) {
+                // Validate token signature, expiry, email match, and current account state
+                if (isAccountUsable(userDetails) && jwtUtil.isTokenValid(jwt, userDetails)) {
 
-                // Create Spring Security authentication token
-                // credentials = null (we don't need password after JWT verification)
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails,
-                                null,
-                                userDetails.getAuthorities()  // ["ROLE_CUSTOMER"] or ["ROLE_ADMIN"]
-                        );
+                    // credentials = null because password verification already happened at login
+                    UsernamePasswordAuthenticationToken authToken =
+                            new UsernamePasswordAuthenticationToken(
+                                    userDetails,
+                                    null,
+                                    userDetails.getAuthorities()
+                            );
 
-                // Attach request details (IP address, session ID) to auth token
-                authToken.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
+                    authToken.setDetails(
+                            new WebAuthenticationDetailsSource().buildDetails(request)
+                    );
 
                 // ✅ Set authenticated user in SecurityContext
-                // From this point, @PreAuthorize checks can access this auth
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                    // From this point, @PreAuthorize checks can access this auth
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
 
-                log.debug("Authenticated user: {} for request: {}", userEmail, request.getRequestURI());
+                    log.debug("Authenticated user: {} for request: {}", userEmail, request.getRequestURI());
+                }
+            } catch (UsernameNotFoundException e) {
+                log.debug("JWT subject no longer maps to an account: {}", userEmail);
             }
         }
 
         // ── Step 5: Continue the filter chain ─────────────────
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isAccountUsable(UserDetails userDetails) {
+        return userDetails.isEnabled()
+                && userDetails.isAccountNonLocked()
+                && userDetails.isAccountNonExpired()
+                && userDetails.isCredentialsNonExpired();
     }
 }

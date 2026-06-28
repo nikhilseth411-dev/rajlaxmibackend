@@ -56,4 +56,8 @@ public class RegisterRequest {
         message = "Password must contain uppercase, lowercase, number, and special character"
     )
     private String password;
+
+    public void setEmail(String email) {
+        this.email = email == null ? null : email.trim();
+    }
 }

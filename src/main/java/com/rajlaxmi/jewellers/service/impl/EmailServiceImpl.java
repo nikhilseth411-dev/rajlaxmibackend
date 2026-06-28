@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
  *   Email sending can take 1-3 seconds (SMTP call).
  *   @Async runs it on a separate thread pool so the API response
  *   is returned to the user immediately without waiting for email.
- *   Requires @EnableAsync (auto-configured by Spring Boot).
+ *   Requires @EnableAsync on the application configuration.
  *
  * HTML templates use inline CSS (some email clients strip <style>).
  * Colors match RajLaxmi brand: Gold (#D4AF37), Maroon (#5A0F16).

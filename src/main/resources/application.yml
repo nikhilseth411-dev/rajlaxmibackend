@@ -106,10 +106,10 @@ jwt:
   access-token-expiry-ms: ${JWT_ACCESS_EXPIRY:900000}      # 15 minutes
   refresh-token-expiry-ms: ${JWT_REFRESH_EXPIRY:604800000}  # 7 days
 
-# ── Gold Price API (metals.live — free, no API key needed) ────
+# ── Gold Price API (gold-api.com — free, no API key needed) ───
 # Endpoint returns live gold/silver prices in multiple currencies
 gold-price:
-  api-url: https://api.metals.live/v1/spot
+  api-url: ${GOLD_PRICE_API_URL:https://api.gold-api.com}
   currency: INR
   scheduler-enabled: ${GOLD_PRICE_SCHEDULER_ENABLED:false}
   refresh-cron: "0 0 * * * *"   # every hour at :00 minutes

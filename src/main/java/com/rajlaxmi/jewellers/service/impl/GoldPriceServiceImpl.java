@@ -57,8 +57,9 @@ public class GoldPriceServiceImpl implements GoldPriceService {
 
         List<GoldRateResponse.PriceHistoryPoint> history = List.of();
         if (historyPoints > 0) {
+            int safeHistoryPoints = Math.min(historyPoints, 100);
             history = goldPriceRepository
-                    .findAllByOrderByFetchedAtDesc(PageRequest.of(0, historyPoints))
+                    .findAllByOrderByFetchedAtDesc(PageRequest.of(0, safeHistoryPoints))
                     .stream()
                     .map(gp -> GoldRateResponse.PriceHistoryPoint.builder()
                             .timestamp(gp.getFetchedAt())
@@ -130,7 +131,7 @@ public class GoldPriceServiceImpl implements GoldPriceService {
         // Until then, rates remain as the last admin-set value.
         goldPriceRepository.findByIsCurrentTrue().ifPresent(gp -> {
             gp.setAdminOverride(false);
-            gp.setSource("metals.live (pending refresh)");
+            gp.setSource("gold-api.com (pending refresh)");
             goldPriceRepository.save(gp);
         });
         return ApiResponse.success("Admin override removed. Prices will update on next scheduler run (within 1 hour).");

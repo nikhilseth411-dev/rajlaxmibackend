@@ -76,7 +76,9 @@ public class UserController {
             @RequestParam(defaultValue = "50") int size) {
 
         List<UserResponse> customers = userRepository
-                .findByRole(Role.CUSTOMER, PageRequest.of(page, size))
+                .findByRole(Role.CUSTOMER, PageRequest.of(
+                        Math.max(page, 0),
+                        Math.min(Math.max(size, 1), 100)))
                 .getContent()
                 .stream()
                 .map(this::toResponse)

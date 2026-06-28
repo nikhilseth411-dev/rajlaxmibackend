@@ -24,7 +24,7 @@ public class GoldRateResponse {
     private boolean goldPriceUp;      // true = green arrow, false = red arrow
 
     private LocalDateTime lastUpdated;
-    private String source;            // "metals.live"
+    private String source;            // "gold-api.com" or "admin-override"
     private boolean isAdminOverride;
 
     // For chart: last 7 or 30 data points

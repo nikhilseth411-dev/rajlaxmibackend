@@ -77,7 +77,10 @@ public class StoreVisitServiceImpl implements StoreVisitService {
     public PagedResponse<StoreVisitResponse> getUserVisits(Long userId, int page, int size) {
         return PagedResponse.from(
                 storeVisitRepository.findByUserIdOrderByCreatedAtDesc(userId,
-                        PageRequest.of(page, size, Sort.by("createdAt").descending())),
+                        PageRequest.of(
+                                Math.max(page, 0),
+                                Math.min(Math.max(size, 1), 100),
+                                Sort.by("createdAt").descending())),
                 this::toResponse);
     }
 
@@ -99,7 +102,9 @@ public class StoreVisitServiceImpl implements StoreVisitService {
     public PagedResponse<StoreVisitResponse> getPendingVisits(int page, int size) {
         return PagedResponse.from(
                 storeVisitRepository.findByStatusOrderByVisitDateAsc("PENDING",
-                        PageRequest.of(page, size)),
+                        PageRequest.of(
+                                Math.max(page, 0),
+                                Math.min(Math.max(size, 1), 100))),
                 this::toResponse);
     }
 

@@ -51,7 +51,7 @@ public class SilverPrice {
     private String currency = "INR";
 
     @Builder.Default
-    private String source = "metals.live";
+    private String source = "gold-api.com";
 
     @Builder.Default
     private boolean isCurrent = false;

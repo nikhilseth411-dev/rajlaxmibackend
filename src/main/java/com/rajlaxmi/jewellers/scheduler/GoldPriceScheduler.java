@@ -15,6 +15,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
@@ -25,17 +26,17 @@ import java.util.Optional;
  * ================================================================
  * WHAT THIS DOES:
  *   Runs every hour to:
- *     1. Fetch current gold/silver prices from metals.live API
+ *     1. Fetch current gold/silver prices from gold-api.com
  *     2. Calculate 18K/22K rates from 24K base rate
  *     3. Compute price change vs previous record
  *     4. Save new price record to DB
  *     5. Mark old "current" record as not current
  *     6. Evict Redis cache so next homepage load gets fresh rates
  *
- * metals.live API:
- *   URL: https://api.metals.live/v1/spot
+ * gold-api.com API:
+ *   URL: https://api.gold-api.com/price/{symbol}
  *   Free, no API key required
- *   Returns: [{gold: 1930.5, silver: 23.1, ...}] in USD/troy oz
+ *   Returns: {symbol: "XAU", price: 1930.5, ...} in USD/troy oz
  *
  * CURRENCY CONVERSION:
  *   API returns USD per troy ounce.
@@ -69,9 +70,13 @@ public class GoldPriceScheduler {
     @Value("${gold-price.scheduler-enabled:true}")
     private boolean schedulerEnabled;
 
+    @Value("${gold-price.api-url:https://api.gold-api.com}")
+    private String metalsApiUrl;
+
     // Conversion constants
     private static final BigDecimal TROY_OUNCE_TO_GRAMS = new BigDecimal("31.1035");
     private static final int SCALE = 2;
+    private static final Duration API_TIMEOUT = Duration.ofSeconds(10);
 
     /**
      * Main scheduled method — runs every hour.
@@ -92,7 +97,7 @@ public class GoldPriceScheduler {
         log.info("Starting gold price fetch at {}", LocalDateTime.now());
 
         try {
-            // ── Step 1: Fetch from metals.live API ────────────
+            // ── Step 1: Fetch current gold and silver spot prices ──
             MetalsApiResponse apiResponse = fetchFromMetalsApi();
 
             if (apiResponse == null) {
@@ -144,7 +149,7 @@ public class GoldPriceScheduler {
                     .changePercent(goldChangePercent)
                     .fetchedAt(LocalDateTime.now())
                     .currency("INR")
-                    .source("metals.live")
+                    .source("gold-api.com")
                     .isCurrent(true)
                     .isAdminOverride(false)
                     .build();
@@ -158,7 +163,7 @@ public class GoldPriceScheduler {
                     .ratePerGram(silverPerGramInr.setScale(SCALE, RoundingMode.HALF_UP))
                     .fetchedAt(LocalDateTime.now())
                     .currency("INR")
-                    .source("metals.live")
+                    .source("gold-api.com")
                     .isCurrent(true)
                     .build();
 
@@ -180,37 +185,40 @@ public class GoldPriceScheduler {
     }
 
     /**
-     * Fetches price data from metals.live API.
+     * Fetches price data from the configured metals API.
      * Returns null if the API is unreachable or returns invalid data.
      */
-    @SuppressWarnings("unchecked")
     private MetalsApiResponse fetchFromMetalsApi() {
         try {
-            var response = webClientBuilder
-                    .baseUrl("https://api.metals.live")
-                    .build()
-                    .get()
-                    .uri("/v1/spot")
-                    .retrieve()
-                    .bodyToMono(Object[].class)
-                    .block();
-
-            if (response == null || response.length == 0) return null;
-
-            // API returns array: [{"gold": 1930.5, "silver": 23.1, ...}]
-            Map<String, Object> data = (Map<String, Object>) response[0];
-
-            double gold = ((Number) data.get("gold")).doubleValue();
-            double silver = ((Number) data.get("silver")).doubleValue();
-
-            return new MetalsApiResponse(
-                    new BigDecimal(gold).setScale(4, RoundingMode.HALF_UP),
-                    new BigDecimal(silver).setScale(4, RoundingMode.HALF_UP)
-            );
+            BigDecimal gold = fetchMetalPrice("XAU");
+            BigDecimal silver = fetchMetalPrice("XAG");
+            return new MetalsApiResponse(gold, silver);
         } catch (Exception e) {
-            log.error("Failed to call metals.live API: {}", e.getMessage());
+            log.error("Failed to call metals price API: {}", e.getMessage());
             return null;
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private BigDecimal fetchMetalPrice(String symbol) {
+        Map<String, Object> response = webClientBuilder
+                .baseUrl(metalsApiUrl)
+                .build()
+                .get()
+                .uri("/price/{symbol}", symbol)
+                .retrieve()
+                .bodyToMono(Map.class)
+                .block(API_TIMEOUT);
+
+        return extractPrice(response, symbol);
+    }
+
+    static BigDecimal extractPrice(Map<String, Object> response, String symbol) {
+        if (response == null || !(response.get("price") instanceof Number price)) {
+            throw new IllegalStateException("Missing price for " + symbol);
+        }
+
+        return new BigDecimal(price.toString()).setScale(4, RoundingMode.HALF_UP);
     }
 
     /**
@@ -227,7 +235,7 @@ public class GoldPriceScheduler {
                     .uri("/v4/latest/USD")
                     .retrieve()
                     .bodyToMono(Map.class)
-                    .block();
+                    .block(API_TIMEOUT);
 
             if (response != null) {
                 Map<String, Object> rates = (Map<String, Object>) response.get("rates");

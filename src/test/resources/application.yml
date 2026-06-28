@@ -38,7 +38,7 @@ jwt:
   refresh-token-expiry-ms: 604800000
 
 gold-price:
-  api-url: https://api.metals.live/v1/spot
+  api-url: https://api.gold-api.com
   refresh-cron: "0 0 * * * *"
   scheduler-enabled: false
   currency: INR

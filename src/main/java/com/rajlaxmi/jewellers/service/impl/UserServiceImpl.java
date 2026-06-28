@@ -67,7 +67,10 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public PagedResponse<UserResponse> getAllUsers(int page, int size, String search) {
-        var pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        var pageable = PageRequest.of(
+                Math.max(page, 0),
+                Math.min(Math.max(size, 1), 100),
+                Sort.by("createdAt").descending());
         var userPage = (search != null && !search.isBlank())
                 ? userRepository.searchUsers(search, pageable)
                 : userRepository.findAll(pageable);

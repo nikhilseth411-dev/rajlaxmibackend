@@ -87,7 +87,7 @@ public class GoldPrice {
 
     @Column(length = 50)
     @Builder.Default
-    private String source = "metals.live"; // API source name
+    private String source = "gold-api.com"; // API source name
 
     /**
      * Only one record should have isCurrent = true.
