@@ -144,6 +144,10 @@ auth:
 app:
   mail:
     enabled: ${MAIL_ENABLED:false}
+    from: ${MAIL_FROM:${MAIL_USERNAME:rajlaxmijewellers.gaya@gmail.com}}
+    resend:
+      api-key: ${RESEND_API_KEY:}
+      api-url: ${RESEND_API_URL:https://api.resend.com/emails}
   redis:
     enabled: ${REDIS_ENABLED:false}
   dev-admin:

@@ -9,6 +9,11 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import java.time.Duration;
+import java.util.Map;
 
 /**
  * ================================================================
@@ -34,9 +39,16 @@ import org.springframework.stereotype.Service;
 public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
+    private final WebClient.Builder webClientBuilder;
 
-    @Value("${spring.mail.username}")
+    @Value("${app.mail.from:${spring.mail.username}}")
     private String fromEmail;
+
+    @Value("${app.mail.resend.api-key:}")
+    private String resendApiKey;
+
+    @Value("${app.mail.resend.api-url:https://api.resend.com/emails}")
+    private String resendApiUrl;
 
     @Value("${business.name:राज लक्ष्मी ज्वेलर्स}")
     private String businessName;
@@ -52,13 +64,7 @@ public class EmailServiceImpl implements EmailService {
         }
 
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(fromEmail, businessName);
-            helper.setTo(to);
-            helper.setSubject("Your OTP for " + businessName + " — " + otp);
-            helper.setText(buildOtpEmailHtml(name, otp), true);
-            mailSender.send(message);
+            sendEmail(to, "Your OTP for " + businessName + " — " + otp, buildOtpEmailHtml(name, otp));
             log.info("OTP email sent to: {}", to);
         } catch (Exception e) {
             log.error("Failed to send OTP email to {}: {}", to, e.getMessage());
@@ -73,13 +79,8 @@ public class EmailServiceImpl implements EmailService {
         }
 
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(fromEmail, businessName);
-            helper.setTo(to);
-            helper.setSubject("Password Reset Request — " + businessName);
-            helper.setText(buildPasswordResetHtml(name, resetToken), true);
-            mailSender.send(message);
+            sendEmail(to, "Password Reset Request — " + businessName,
+                    buildPasswordResetHtml(name, resetToken));
             log.info("Password reset email sent to: {}", to);
         } catch (Exception e) {
             log.error("Failed to send password reset email to {}: {}", to, e.getMessage());
@@ -94,16 +95,48 @@ public class EmailServiceImpl implements EmailService {
         }
 
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(fromEmail, businessName);
-            helper.setTo(to);
-            helper.setSubject("Welcome to " + businessName + " — शाश्वत सुंदरता, भरोसे की विरासत");
-            helper.setText(buildWelcomeEmailHtml(name), true);
-            mailSender.send(message);
+            sendEmail(to, "Welcome to " + businessName + " — शाश्वत सुंदरता, भरोसे की विरासत",
+                    buildWelcomeEmailHtml(name));
         } catch (Exception e) {
             log.error("Failed to send welcome email to {}: {}", to, e.getMessage());
         }
+    }
+
+    private void sendEmail(String to, String subject, String html) throws Exception {
+        if (StringUtils.hasText(resendApiKey)) {
+            sendWithResend(to, subject, html);
+            return;
+        }
+
+        sendWithSmtp(to, subject, html);
+    }
+
+    private void sendWithResend(String to, String subject, String html) {
+        webClientBuilder.build()
+                .post()
+                .uri(resendApiUrl)
+                .headers(headers -> {
+                    headers.setBearerAuth(resendApiKey);
+                    headers.set("User-Agent", "rajlaxmi-jewellers-backend");
+                })
+                .bodyValue(Map.of(
+                        "from", fromEmail,
+                        "to", new String[]{to},
+                        "subject", subject,
+                        "html", html))
+                .retrieve()
+                .toBodilessEntity()
+                .block(Duration.ofSeconds(10));
+    }
+
+    private void sendWithSmtp(String to, String subject, String html) throws Exception {
+        MimeMessage message = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+        helper.setFrom(fromEmail, businessName);
+        helper.setTo(to);
+        helper.setSubject(subject);
+        helper.setText(html, true);
+        mailSender.send(message);
     }
 
     // ── HTML Templates ────────────────────────────────────────
