@@ -5,6 +5,7 @@ import com.rajlaxmi.jewellers.dto.request.ProductFilterRequest;
 import com.rajlaxmi.jewellers.dto.request.UpdateProductRequest;
 import com.rajlaxmi.jewellers.dto.response.*;
 import com.rajlaxmi.jewellers.entity.*;
+import com.rajlaxmi.jewellers.enums.ProductCategory;
 import com.rajlaxmi.jewellers.exception.BusinessException;
 import com.rajlaxmi.jewellers.exception.DuplicateResourceException;
 import com.rajlaxmi.jewellers.exception.ResourceNotFoundException;
@@ -26,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -34,6 +36,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
+import java.text.Normalizer;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -56,6 +59,9 @@ public class ProductServiceImpl implements ProductService {
 
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
             "createdAt", "name", "sku", "weightGrams", "makingCharges"
+    );
+    private static final Set<String> ALLOWED_IMAGE_TYPES = Set.of(
+            "image/jpeg", "image/png", "image/webp"
     );
 
     // ── Browse / Search ───────────────────────────────────────
@@ -166,7 +172,7 @@ public class ProductServiceImpl implements ProductService {
                 .sku(req.getSku().toUpperCase())
                 .description(req.getDescription())
                 .category(category)
-                .productCategory(req.getProductCategory())
+                .productCategory(resolveProductCategory(category, req.getProductCategory()))
                 .metalType(req.getMetalType())
                 .goldPurity(req.getGoldPurity())
                 .weightGrams(req.getWeightGrams())
@@ -218,7 +224,12 @@ public class ProductServiceImpl implements ProductService {
                     .orElseThrow(() -> new ResourceNotFoundException("Category", "id", req.getCategoryId()));
             product.setCategory(cat);
         }
-        if (req.getProductCategory() != null) product.setProductCategory(req.getProductCategory());
+        if (req.getCategoryId() != null || req.getProductCategory() != null) {
+            product.setProductCategory(resolveProductCategory(
+                    product.getCategory(),
+                    req.getProductCategory() != null ? req.getProductCategory() : product.getProductCategory()
+            ));
+        }
         if (req.getMetalType() != null) product.setMetalType(req.getMetalType());
         if (req.getGoldPurity() != null) product.setGoldPurity(req.getGoldPurity());
         if (req.getWeightGrams() != null) product.setWeightGrams(req.getWeightGrams());
@@ -258,20 +269,36 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
 
-        // Validate file type
-        String contentType = file.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException("Please select a non-empty image file.");
+        }
+
+        String contentType = file.getContentType() != null
+                ? file.getContentType().toLowerCase(Locale.ROOT)
+                : "";
+        if (!ALLOWED_IMAGE_TYPES.contains(contentType)) {
             throw new BusinessException("Only image files (JPEG, PNG, WebP) are allowed.");
         }
 
-        try {
-            // Save file to uploads directory
-            String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
-            Path uploadPath = Paths.get(uploadDir + "products/");
-            Files.createDirectories(uploadPath);
-            Files.copy(file.getInputStream(), uploadPath.resolve(filename), StandardCopyOption.REPLACE_EXISTING);
+        String categoryFolder = normalizeCategoryFolder(product.getCategory());
+        Path uploadRoot = Paths.get(uploadDir).toAbsolutePath().normalize();
+        Path productRoot = uploadRoot.resolve("products").normalize();
+        Path categoryPath = productRoot.resolve(categoryFolder).normalize();
+        if (!categoryPath.startsWith(productRoot)) {
+            throw new BusinessException("Invalid product category upload path.");
+        }
 
-            String imageUrl = "uploads/products/" + filename;
+        String filename = UUID.randomUUID() + extensionForContentType(contentType);
+        Path target = categoryPath.resolve(filename).normalize();
+        if (!target.startsWith(categoryPath)) {
+            throw new BusinessException("Invalid product image path.");
+        }
+
+        try {
+            Files.createDirectories(categoryPath);
+            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+
+            String imageUrl = "uploads/products/" + categoryFolder + "/" + filename;
             int sortOrder = product.getImages().size();
 
             // If primary, unset other primary images
@@ -291,8 +318,9 @@ public class ProductServiceImpl implements ProductService {
             productRepository.save(product);
             return ApiResponse.success("Image uploaded successfully.", imageUrl);
 
-        } catch (Exception e) {
-            throw new BusinessException("Failed to upload image: " + e.getMessage());
+        } catch (IOException e) {
+            log.error("Failed to store product image for product {}", productId, e);
+            throw new BusinessException("Failed to upload image. Please try again.");
         }
     }
 
@@ -386,7 +414,7 @@ public class ProductServiceImpl implements ProductService {
                 .baseMetalValue(price != null ? price.getBaseMetalValue() : null)
                 .makingCharges(price != null ? price.getMakingCharges() : null)
                 .gstAmount(price != null ? price.getGstAmount() : null)
-                .currentGoldRate(goldPrice != null ? goldPrice.getRate22K() : null)
+                .currentGoldRate(price != null ? price.getGoldRatePerGram() : null)
                 .isBisHallmarked(p.isBisHallmarked())
                 .isFeatured(p.isFeatured())
                 .isNewArrival(p.isNewArrival())
@@ -487,6 +515,59 @@ public class ProductServiceImpl implements ProductService {
     private String normalizeLowerFilter(String value) {
         String normalized = normalizeFilter(value);
         return normalized != null ? normalized.toLowerCase(Locale.ROOT) : null;
+    }
+
+    static ProductCategory resolveProductCategory(Category category, ProductCategory fallback) {
+        if (category == null) {
+            return fallback;
+        }
+
+        String source = ((category.getName() != null ? category.getName() : "") + " "
+                + (category.getSlug() != null ? category.getSlug() : ""))
+                .toLowerCase(Locale.ROOT);
+
+        if (source.contains("mangalsutra")) return ProductCategory.MANGALSUTRA;
+        if (source.contains("earring")) return ProductCategory.EARRINGS;
+        if (source.contains("necklace")) return ProductCategory.NECKLACES;
+        if (source.contains("bangle")) return ProductCategory.BANGLES;
+        if (source.contains("bracelet")) return ProductCategory.BRACELETS;
+        if (source.contains("ring")) return ProductCategory.RINGS;
+        if (source.contains("pendant")) return ProductCategory.PENDANTS;
+        if (source.contains("chain")) return ProductCategory.CHAINS;
+        if (source.contains("anklet")) return ProductCategory.ANKLETS;
+        if (source.contains("diamond")) return ProductCategory.DIAMOND_JEWELLERY;
+        if (source.contains("bridal")) return ProductCategory.BRIDAL_COLLECTION;
+        if (source.contains("temple")) return ProductCategory.TEMPLE_JEWELLERY;
+        if (source.contains("antique")) return ProductCategory.ANTIQUE_JEWELLERY;
+        if (source.contains("silver")) return ProductCategory.SILVER_COLLECTION;
+        if (source.contains("gold")) return ProductCategory.GOLD_JEWELLERY;
+        return fallback;
+    }
+
+    static String normalizeCategoryFolder(Category category) {
+        String categoryName = category != null ? category.getName() : null;
+        String normalized = categoryName != null
+                ? Normalizer.normalize(categoryName, Normalizer.Form.NFKD)
+                    .replaceAll("\\p{M}", "")
+                    .toLowerCase(Locale.ROOT)
+                    .replaceAll("[^a-z0-9]+", "-")
+                    .replaceAll("^-+|-+$", "")
+                : "";
+
+        if (!normalized.isBlank()) {
+            return normalized;
+        }
+        return category != null && category.getId() != null
+                ? "category-" + category.getId()
+                : "uncategorized";
+    }
+
+    private static String extensionForContentType(String contentType) {
+        return switch (contentType) {
+            case "image/png" -> ".png";
+            case "image/webp" -> ".webp";
+            default -> ".jpg";
+        };
     }
 
     private String generateProductSlug(String name, String sku) {

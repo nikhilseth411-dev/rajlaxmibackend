@@ -18,5 +18,6 @@ public enum ProductCategory {
     RINGS,
     PENDANTS,
     CHAINS,
+    BRACELETS,
     ANKLETS
 }
