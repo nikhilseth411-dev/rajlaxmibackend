@@ -71,8 +71,7 @@ app:
   redis:
     enabled: false
   dev-admin:
-    email: admin@rajlaxmi.local
-    password: Admin@12345
+    enabled: false
 
 file:
   upload-dir: uploads/

@@ -4,6 +4,7 @@ import com.rajlaxmi.jewellers.dto.request.CreateCategoryRequest;
 import com.rajlaxmi.jewellers.dto.request.CreateProductRequest;
 import com.rajlaxmi.jewellers.dto.request.GoldPriceOverrideRequest;
 import com.rajlaxmi.jewellers.dto.request.UpdateInventoryRequest;
+import com.rajlaxmi.jewellers.dto.request.UpdateAdminCredentialsRequest;
 import com.rajlaxmi.jewellers.dto.request.UpdateProductRequest;
 import com.rajlaxmi.jewellers.dto.response.*;
 import com.rajlaxmi.jewellers.entity.User;
@@ -45,6 +46,7 @@ public class AdminController {
     private final InventoryService inventoryService;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
+    private final AdminAccountService adminAccountService;
 
     // ── Dashboard ─────────────────────────────────────────────
 
@@ -71,6 +73,14 @@ public class AdminController {
                 .build();
 
         return ResponseEntity.ok(ApiResponse.success(dashboard));
+    }
+
+    @PutMapping("/account/credentials")
+    @Operation(summary = "Update the authenticated admin email and password")
+    public ResponseEntity<ApiResponse<UserResponse>> updateCredentials(
+            @AuthenticationPrincipal User admin,
+            @Valid @RequestBody UpdateAdminCredentialsRequest request) {
+        return ResponseEntity.ok(adminAccountService.updateCredentials(admin, request));
     }
 
     // ── Products ──────────────────────────────────────────────

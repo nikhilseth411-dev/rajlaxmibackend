@@ -23,6 +23,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.util.StringUtils;
+
 @Component
 @Profile("dev")
 @RequiredArgsConstructor
@@ -35,10 +37,13 @@ public class DevDataInitializer implements ApplicationRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    @Value("${app.dev-admin.email:admin@rajlaxmi.local}")
+    @Value("${app.dev-admin.enabled:false}")
+    private boolean devAdminEnabled;
+
+    @Value("${app.dev-admin.email:}")
     private String devAdminEmail;
 
-    @Value("${app.dev-admin.password:Admin@12345}")
+    @Value("${app.dev-admin.password:}")
     private String devAdminPassword;
 
     @Override
@@ -135,6 +140,13 @@ public class DevDataInitializer implements ApplicationRunner {
     }
 
     private void seedAdminUser() {
+        if (!devAdminEnabled
+                || !StringUtils.hasText(devAdminEmail)
+                || !StringUtils.hasText(devAdminPassword)) {
+            log.info("Dev admin seeding is disabled.");
+            return;
+        }
+
         String normalizedEmail = devAdminEmail.toLowerCase().trim();
         if (userRepository.countByRole(Role.ADMIN) > 0 || userRepository.existsByEmail(normalizedEmail)) {
             return;

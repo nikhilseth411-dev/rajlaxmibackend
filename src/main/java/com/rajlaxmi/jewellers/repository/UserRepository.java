@@ -39,6 +39,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByEmail(String email);
 
+    boolean existsByEmailAndIdNot(String email, Long id);
+
     boolean existsByPhone(String phone);
 
     // ── OTP Verification ──────────────────────────────────────

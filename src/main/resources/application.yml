@@ -151,8 +151,9 @@ app:
   redis:
     enabled: ${REDIS_ENABLED:false}
   dev-admin:
-    email: ${DEV_ADMIN_EMAIL:admin@rajlaxmi.local}
-    password: ${DEV_ADMIN_PASSWORD:Admin@12345}
+    enabled: ${DEV_ADMIN_ENABLED:false}
+    email: ${DEV_ADMIN_EMAIL:}
+    password: ${DEV_ADMIN_PASSWORD:}
 
 # ── File Upload ───────────────────────────────────────────────
 file:
