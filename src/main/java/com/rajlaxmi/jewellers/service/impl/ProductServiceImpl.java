@@ -459,6 +459,7 @@ public class ProductServiceImpl implements ProductService {
                 .weightGrams(p.getWeightGrams())
                 .currentGoldRatePerGram(price != null ? price.getGoldRatePerGram() : null)
                 .baseMetalValue(price != null ? price.getBaseMetalValue() : null)
+                .makingChargesValue(p.getMakingCharges())
                 .makingCharges(price != null ? price.getMakingCharges() : null)
                 .makingChargesType(p.getMakingChargesType())
                 .stoneCharges(price != null ? price.getStoneCharges() : null)

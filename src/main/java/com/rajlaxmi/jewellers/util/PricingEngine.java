@@ -72,7 +72,7 @@ public class PricingEngine {
                 .setScale(SCALE, ROUNDING);
 
         // ── Step 3: Calculate making charges ──────────────────
-        BigDecimal makingChargesTotal = calculateMakingCharges(product);
+        BigDecimal makingChargesTotal = calculateMakingCharges(product, baseMetalValue);
 
         // ── Step 4: Stone/diamond charges (fixed per product) ─
         BigDecimal stoneCharges = product.getStoneCharges() != null
@@ -142,8 +142,14 @@ public class PricingEngine {
      * PER_GRAM: makingCharges (₹/g) × weightGrams
      * FIXED:    makingCharges as flat ₹ amount
      */
-    private BigDecimal calculateMakingCharges(Product product) {
+    private BigDecimal calculateMakingCharges(Product product, BigDecimal baseMetalValue) {
         if (product.getMakingCharges() == null) return BigDecimal.ZERO;
+
+        if ("PERCENTAGE".equals(product.getMakingChargesType())) {
+            return baseMetalValue
+                    .multiply(product.getMakingCharges())
+                    .divide(new BigDecimal("100"), SCALE, ROUNDING);
+        }
 
         if ("PER_GRAM".equals(product.getMakingChargesType())) {
             return product.getMakingCharges()

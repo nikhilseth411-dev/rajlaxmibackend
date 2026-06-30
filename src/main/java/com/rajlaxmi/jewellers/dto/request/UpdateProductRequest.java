@@ -18,6 +18,8 @@ public class UpdateProductRequest {
     private GoldPurity goldPurity;
     @DecimalMin("0.01") private BigDecimal weightGrams;
     @DecimalMin("0") private BigDecimal makingCharges;
+    @Pattern(regexp = "^(PER_GRAM|FIXED|PERCENTAGE)$",
+            message = "Making charges type must be PER_GRAM, FIXED, or PERCENTAGE")
     private String makingChargesType;
     @DecimalMin("0") private BigDecimal stoneCharges;
     @DecimalMin("0") @DecimalMax("28") private BigDecimal gstPercentage;

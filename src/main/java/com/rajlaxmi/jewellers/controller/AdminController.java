@@ -95,7 +95,7 @@ public class AdminController {
     @PatchMapping("/products/{id}")
     @Operation(summary = "Update product fields")
     public ResponseEntity<ApiResponse<ProductDetailResponse>> updateProduct(
-            @PathVariable Long id, @RequestBody UpdateProductRequest request) {
+            @PathVariable Long id, @Valid @RequestBody UpdateProductRequest request) {
         return ResponseEntity.ok(productService.updateProduct(id, request));
     }
 

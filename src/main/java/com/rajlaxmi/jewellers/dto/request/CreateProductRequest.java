@@ -57,7 +57,8 @@ public class CreateProductRequest {
     @DecimalMin(value = "0", message = "Making charges cannot be negative")
     private BigDecimal makingCharges;
 
-    @Pattern(regexp = "^(PER_GRAM|FIXED)$", message = "Making charges type must be PER_GRAM or FIXED")
+    @Pattern(regexp = "^(PER_GRAM|FIXED|PERCENTAGE)$",
+            message = "Making charges type must be PER_GRAM, FIXED, or PERCENTAGE")
     private String makingChargesType = "PER_GRAM";
 
     @DecimalMin(value = "0")

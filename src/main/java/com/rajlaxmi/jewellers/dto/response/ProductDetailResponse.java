@@ -47,8 +47,9 @@ public class ProductDetailResponse {
     // This transparency is a major trust signal for jewellery buyers
     private BigDecimal currentGoldRatePerGram;   // live rate used
     private BigDecimal baseMetalValue;            // weight × rate × purity
-    private BigDecimal makingCharges;             // labour/craftsmanship cost
-    private String makingChargesType;             // PER_GRAM or FIXED
+    private BigDecimal makingChargesValue;        // admin-entered amount/rate/percentage
+    private BigDecimal makingCharges;             // calculated labour/craftsmanship cost
+    private String makingChargesType;             // PER_GRAM, FIXED, or PERCENTAGE
     private BigDecimal stoneCharges;              // diamond/stone charges
     private BigDecimal taxableValue;              // base + making + stone
     private BigDecimal gstPercentage;             // 3% (standard)
