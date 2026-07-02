@@ -157,7 +157,7 @@ app:
 
 # ── File Upload ───────────────────────────────────────────────
 file:
-  upload-dir: ${FILE_UPLOAD_DIR:uploads/}
+  upload-dir: ${FILE_UPLOAD_DIR:${RAILWAY_VOLUME_MOUNT_PATH:uploads/}}
   allowed-types: image/jpeg,image/png,image/webp
   max-size-bytes: 5242880     # 5MB
 

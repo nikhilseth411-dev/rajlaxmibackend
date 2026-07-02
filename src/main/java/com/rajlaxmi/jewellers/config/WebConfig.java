@@ -5,6 +5,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.nio.file.Paths;
+
 /**
  * WebConfig — Static Resource Serving
  *
@@ -24,9 +26,13 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // Serve uploaded product images
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:" + uploadDir)
+                .addResourceLocations(toResourceLocation(uploadDir))
                 .setCachePeriod(3600); // 1-hour client cache for images
+    }
+
+    static String toResourceLocation(String directory) {
+        String location = Paths.get(directory).toAbsolutePath().normalize().toUri().toString();
+        return location.endsWith("/") ? location : location + "/";
     }
 }
