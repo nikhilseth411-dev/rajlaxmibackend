@@ -30,7 +30,7 @@ app:
     enabled: ${MAIL_ENABLED:true}
 
 gold-price:
-  scheduler-enabled: ${GOLD_PRICE_SCHEDULER_ENABLED:true}
+  scheduler-enabled: ${GOLD_PRICE_SCHEDULER_ENABLED:false}
 
 logging:
   level:

@@ -343,6 +343,16 @@ public class AuthServiceImpl implements AuthService {
         return ApiResponse.successMessage("Password reset successfully. Please login with your new password.");
     }
 
+    @Override
+    public ApiResponse<AuthResponse> createSessionForVerifiedUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        if (!user.isActive() || user.getRole() != Role.CUSTOMER) {
+            throw new BusinessException("This customer account is not available.");
+        }
+        return ApiResponse.success("Phone verified successfully.", generateAuthResponse(user));
+    }
+
     // ── Private Helpers ───────────────────────────────────────
 
     /**

@@ -5,6 +5,7 @@ import com.rajlaxmi.jewellers.dto.response.ApiResponse;
 import com.rajlaxmi.jewellers.dto.response.GoldRateResponse;
 import com.rajlaxmi.jewellers.entity.GoldPrice;
 import com.rajlaxmi.jewellers.entity.SilverPrice;
+import com.rajlaxmi.jewellers.exception.BusinessException;
 import com.rajlaxmi.jewellers.exception.ResourceNotFoundException;
 import com.rajlaxmi.jewellers.repository.GoldPriceRepository;
 import com.rajlaxmi.jewellers.repository.SilverPriceRepository;
@@ -51,7 +52,7 @@ public class GoldPriceServiceImpl implements GoldPriceService {
     public GoldRateResponse getCurrentRatesWithHistory(int historyPoints) {
         GoldPrice goldPrice = goldPriceRepository.findByIsCurrentTrue()
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Gold price data not available. Scheduler may not have run yet."));
+                        "Gold rate is not configured yet. Please ask admin to update gold rate."));
 
         SilverPrice silverPrice = silverPriceRepository.findByIsCurrentTrue().orElse(null);
 
@@ -90,17 +91,25 @@ public class GoldPriceServiceImpl implements GoldPriceService {
     public GoldPrice getCurrentGoldPriceEntity() {
         return goldPriceRepository.findByIsCurrentTrue()
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Gold price data not available"));
+                        "Gold rate is not configured yet. Please ask admin to update gold rate."));
     }
 
     @Override
     @CacheEvict(value = "gold_rates", allEntries = true)
     @Transactional
     public ApiResponse<GoldRateResponse> adminOverridePrice(GoldPriceOverrideRequest request) {
-        // Derive 22K and 18K from the provided 24K rate
+        // Keep compatibility with older clients that only submit 24K.
         BigDecimal rate24K = request.getRate24KPerGram();
-        BigDecimal rate22K = rate24K.multiply(new BigDecimal("0.916")).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal rate18K = rate24K.multiply(new BigDecimal("0.750")).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal rate22K = request.getRate22KPerGram() != null
+                ? request.getRate22KPerGram()
+                : rate24K.multiply(new BigDecimal("0.916")).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal rate18K = request.getRate18KPerGram() != null
+                ? request.getRate18KPerGram()
+                : rate24K.multiply(new BigDecimal("0.750")).setScale(2, RoundingMode.HALF_UP);
+
+        if (rate24K.compareTo(rate22K) < 0 || rate22K.compareTo(rate18K) < 0) {
+            throw new BusinessException("Gold rates must follow 24K >= 22K >= 18K.");
+        }
 
         goldPriceRepository.markAllAsNotCurrent();
 
@@ -118,7 +127,7 @@ public class GoldPriceServiceImpl implements GoldPriceService {
                 .build();
 
         goldPriceRepository.save(overridePrice);
-        log.info("Admin override: Gold 24K rate set to ₹{}/g. Reason: {}", rate24K, request.getReason());
+        log.info("Admin gold rates updated for 24K, 22K and 18K. Reason: {}", request.getReason());
 
         return ApiResponse.success("Gold price overridden successfully.", getCurrentRates());
     }
@@ -127,13 +136,6 @@ public class GoldPriceServiceImpl implements GoldPriceService {
     @CacheEvict(value = "gold_rates", allEntries = true)
     @Transactional
     public ApiResponse<String> removeAdminOverride() {
-        // The next scheduler run will fetch fresh API rates.
-        // Until then, rates remain as the last admin-set value.
-        goldPriceRepository.findByIsCurrentTrue().ifPresent(gp -> {
-            gp.setAdminOverride(false);
-            gp.setSource("gold-api.com (pending refresh)");
-            goldPriceRepository.save(gp);
-        });
-        return ApiResponse.success("Admin override removed. Prices will update on next scheduler run (within 1 hour).");
+        throw new BusinessException("Manual gold rates stay active until an admin saves new rates.");
     }
 }

@@ -44,4 +44,7 @@ public interface AuthService {
 
     /** Reset password using token received via email */
     ApiResponse<String> resetPassword(ResetPasswordRequest request);
+
+    /** Issue a customer session after a trusted OTP service verifies the user. */
+    ApiResponse<AuthResponse> createSessionForVerifiedUser(Long userId);
 }

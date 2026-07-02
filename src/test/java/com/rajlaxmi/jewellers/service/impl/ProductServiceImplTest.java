@@ -92,4 +92,15 @@ class ProductServiceImplTest {
         assertThat(storedFile.normalize().startsWith(uploadRoot.resolve("products/bangles"))).isTrue();
         verify(productRepository).save(product);
     }
+
+    @Test
+    void softDeletesProductWithoutRemovingOrderHistoryReference() {
+        Product product = Product.builder().id(31L).name("Archived Necklace").isActive(true).build();
+        when(productRepository.findById(31L)).thenReturn(Optional.of(product));
+
+        service.deleteProduct(31L);
+
+        assertThat(product.isActive()).isFalse();
+        verify(productRepository).save(product);
+    }
 }

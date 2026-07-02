@@ -67,7 +67,7 @@ public class GoldPriceScheduler {
     private final CacheManager cacheManager;
     private final WebClient.Builder webClientBuilder;
 
-    @Value("${gold-price.scheduler-enabled:true}")
+    @Value("${gold-price.scheduler-enabled:false}")
     private boolean schedulerEnabled;
 
     @Value("${gold-price.api-url:https://api.gold-api.com}")
@@ -90,7 +90,12 @@ public class GoldPriceScheduler {
     @Transactional
     public void fetchAndUpdateGoldPrices() {
         if (!schedulerEnabled) {
-            log.info("Gold price scheduler is disabled. Using existing or seeded metal rates.");
+            log.info("Automatic gold price updates are disabled. Manual admin rates remain active.");
+            return;
+        }
+
+        if (goldPriceRepository.findByIsCurrentTrue().map(GoldPrice::isAdminOverride).orElse(false)) {
+            log.info("Skipping automatic gold price update because a manual admin rate is active.");
             return;
         }
 

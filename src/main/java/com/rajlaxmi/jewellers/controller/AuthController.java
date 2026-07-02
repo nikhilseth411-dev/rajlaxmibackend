@@ -4,6 +4,7 @@ import com.rajlaxmi.jewellers.dto.request.*;
 import com.rajlaxmi.jewellers.dto.response.ApiResponse;
 import com.rajlaxmi.jewellers.dto.response.AuthResponse;
 import com.rajlaxmi.jewellers.service.AuthService;
+import com.rajlaxmi.jewellers.service.PhoneAuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final PhoneAuthService phoneAuthService;
 
     @PostMapping("/register")
     @Operation(summary = "Register new customer account")
@@ -71,5 +73,17 @@ public class AuthController {
     @Operation(summary = "Reset password using token from email")
     public ResponseEntity<ApiResponse<String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         return ResponseEntity.ok(authService.resetPassword(request));
+    }
+
+    @PostMapping("/phone/request-otp")
+    @Operation(summary = "Send customer login OTP to an Indian mobile number")
+    public ResponseEntity<ApiResponse<String>> requestPhoneOtp(@Valid @RequestBody PhoneOtpRequest request) {
+        return ResponseEntity.ok(phoneAuthService.requestOtp(request));
+    }
+
+    @PostMapping("/phone/verify-otp")
+    @Operation(summary = "Verify mobile OTP and create or login the customer")
+    public ResponseEntity<ApiResponse<AuthResponse>> verifyPhoneOtp(@Valid @RequestBody VerifyPhoneOtpRequest request) {
+        return ResponseEntity.ok(phoneAuthService.verifyOtp(request));
     }
 }

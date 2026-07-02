@@ -142,6 +142,12 @@ auth:
   expose-otp-in-response: ${AUTH_EXPOSE_OTP:false}
 
 app:
+  sms:
+    enabled: ${SMS_ENABLED:false}
+    provider: ${SMS_PROVIDER:MSG91}
+    api-key: ${SMS_API_KEY:}
+    widget-id: ${SMS_WIDGET_ID:}
+    otp-expiry-minutes: ${SMS_OTP_EXPIRY_MINUTES:10}
   mail:
     enabled: ${MAIL_ENABLED:false}
     from: ${MAIL_FROM:${MAIL_USERNAME:rajlaxmijewellers.gaya@gmail.com}}

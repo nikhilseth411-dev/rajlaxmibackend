@@ -37,7 +37,10 @@ public class ProductResponse {
     // Live calculated price (computed by PricingEngine at request time)
     private BigDecimal finalPrice;
     private BigDecimal baseMetalValue;
+    private BigDecimal makingChargesValue;
     private BigDecimal makingCharges;
+    private String makingChargesType;
+    private BigDecimal gstPercentage;
     private BigDecimal gstAmount;
     private BigDecimal currentGoldRate;
 
